@@ -10,3 +10,12 @@
  */
 
 export const VERSION = "0.0.0";
+
+export { createRouter } from "./router";
+export type {
+  EmbeddingProvider,
+  RouteResult,
+  RouterConfig,
+  Seed,
+  Tier,
+} from "./types";
