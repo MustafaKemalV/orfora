@@ -10,6 +10,8 @@ export const VERSION = "0.0.0";
 
 export type { ComplexityRouterConfig } from "./complexity";
 export { complexityRouter } from "./complexity";
+export type { EvalReport, LabeledExample, Routable } from "./evaluate";
+export { evaluate } from "./evaluate";
 export type { Modality } from "./modality";
 export { normalizeModality } from "./modality";
 export { createRouter } from "./router";
