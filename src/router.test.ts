@@ -85,6 +85,41 @@ describe("createRouter", () => {
     expect(embed).not.toHaveBeenCalled();
   });
 
+  it("routes by attachment modality without paying for an embedding", async () => {
+    const embed = vi.fn(async (texts: string[]) => texts.map(() => [1, 0]));
+    const router = createRouter({
+      routes: {
+        chat: { model: "gpt-4o-mini", seeds: ["hello"] },
+        vision: { model: "gpt-4o", seeds: ["describe this image"] },
+      },
+      fallback: "chat",
+      embed: { embed },
+      signals: { onModality: { image: "vision" } },
+    });
+
+    const result = await router.route({
+      prompt: "what's in this?",
+      attachments: ["photo.png"],
+    });
+
+    expect(result.route).toBe("vision");
+    expect(result.model).toBe("gpt-4o");
+    expect(result.reason).toBe("signal:modality:image");
+    expect(result.fallback).toBe(false);
+    expect(embed).not.toHaveBeenCalled();
+  });
+
+  it("throws when a modality target route is undefined", () => {
+    expect(() =>
+      createRouter({
+        routes: { chat: { model: "m", seeds: ["hi"] } },
+        fallback: "chat",
+        embed: testEmbed,
+        signals: { onModality: { image: "nope" } },
+      }),
+    ).toThrow(/onModality/);
+  });
+
   it("throws when fallback is not a defined route", () => {
     expect(() => makeRouter({ fallback: "nope" })).toThrow(/fallback/);
   });

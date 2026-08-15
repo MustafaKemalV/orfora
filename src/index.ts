@@ -11,10 +11,13 @@
 
 export const VERSION = "0.0.0";
 
+export type { Modality } from "./modality";
+export { normalizeModality } from "./modality";
 export { createRouter } from "./router";
 export type {
   EmbeddingProvider,
   Route,
+  RouteInput,
   RouteResult,
   RouterConfig,
   SignalConfig,

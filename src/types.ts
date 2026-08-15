@@ -22,11 +22,21 @@ export interface Route {
   seeds: string[];
 }
 
+/** A request to route: a prompt, plus optional attachment descriptors. */
+export interface RouteInput {
+  prompt: string;
+  /**
+   * Attachment descriptors as strings: MIME types ("image/png"), file names or
+   * extensions ("clip.mp4"), or plain words ("photo"). Consumed by modality
+   * signals; matched flexibly, so formatting never causes a miss.
+   */
+  attachments?: string[];
+}
+
 /**
  * Deterministic, embedding-free signals checked BEFORE any semantic comparison.
- * When one fires, orfora escalates straight to the `fallback` route and skips the
- * embedding call entirely — both a safety guard (don't downgrade risky requests)
- * and a cost saving (no embedding paid).
+ * They can escalate a request to `fallback` (risky-to-downgrade cases) or route
+ * it by attachment modality — both without paying for an embedding.
  */
 export interface SignalConfig {
   /**
@@ -39,6 +49,18 @@ export interface SignalConfig {
    * or a list of tasks in one request). Off when false/undefined.
    */
   multiIntent?: boolean;
+  /**
+   * Route to use when a request has ANY attachment and no `onModality` mapping
+   * matches — a catch-all. Must be one of the defined routes.
+   */
+  onAttachment?: string;
+  /**
+   * Route per attachment modality, e.g. `{ video: "gemini", image: "vision" }`.
+   * Keys are matched flexibly (a MIME type, extension or word all resolve to the
+   * same modality). Richer modalities win when several are present. Each value
+   * must be one of the defined routes.
+   */
+  onModality?: Record<string, string>;
 }
 
 export interface RouterConfig {
@@ -57,7 +79,7 @@ export interface RouterConfig {
    * non-negative match); raise it to route more conservatively.
    */
   threshold?: number;
-  /** Optional deterministic escalation signals, checked before embedding. */
+  /** Optional deterministic signals, checked before embedding. */
   signals?: SignalConfig;
 }
 
@@ -67,14 +89,14 @@ export interface RouteResult {
   route: string;
   /** The model mapped from the chosen route. */
   model: string;
-  /** Cosine similarity to the nearest seed of the chosen route. */
+  /** Cosine similarity to the nearest seed (1 for a deterministic signal route). */
   score: number;
-  /** True when orfora fell back (a signal fired, low confidence, or an error). */
+  /** True when orfora fell open to `fallback` (low confidence, or an error). */
   fallback: boolean;
   /**
    * Why the decision was made when it isn't a plain semantic match — e.g.
-   * "signal:length", "signal:multi-intent", "below-threshold", "error". Absent on
-   * a normal nearest-seed match.
+   * "signal:modality:video", "signal:length", "below-threshold", "error". Absent
+   * on a normal nearest-seed match.
    */
   reason?: string;
 }

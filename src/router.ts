@@ -1,12 +1,13 @@
 import { checkSignals } from "./signals";
 import { cosineSimilarity } from "./similarity";
-import type { RouteResult, RouterConfig } from "./types";
+import type { RouteInput, RouteResult, RouterConfig } from "./types";
 
 /**
- * Creates a router bound to a config, exposing `route(prompt)`.
+ * Creates a router bound to a config, exposing `route(input)`.
  *
  * Order of decision:
- *   1. Deterministic signals (cheap, no embedding) — can escalate to `fallback`.
+ *   1. Deterministic signals (cheap, no embedding) — route by attachment
+ *      modality, or escalate to `fallback` on length / multi-intent.
  *   2. Semantic match: embed seeds once, embed the request, pick the route whose
  *      nearest seed is most similar.
  * If confidence is below `threshold`, or anything throws, it fails open to
@@ -29,6 +30,20 @@ export function createRouter(config: RouterConfig) {
   }
   if (typeof embed?.embed !== "function") {
     throw new Error("orfora: config.embed (an EmbeddingProvider) is required.");
+  }
+  if (signals?.onAttachment && !routes[signals.onAttachment]) {
+    throw new Error(
+      `orfora: signals.onAttachment "${signals.onAttachment}" is not one of the defined routes.`,
+    );
+  }
+  if (signals?.onModality) {
+    for (const [modality, target] of Object.entries(signals.onModality)) {
+      if (!routes[target]) {
+        throw new Error(
+          `orfora: signals.onModality.${modality} -> "${target}" is not one of the defined routes.`,
+        );
+      }
+    }
   }
 
   type SeedVector = { route: string; vector: number[] };
@@ -66,18 +81,34 @@ export function createRouter(config: RouterConfig) {
     reason,
   });
 
-  async function route(prompt: string): Promise<RouteResult> {
-    // 1. Deterministic signals first: cheap, and they can short-circuit to the
-    //    safe route without paying for an embedding at all.
-    const signal = checkSignals(prompt, signals);
-    if (signal.escalate) return failOpen(signal.reason ?? "signal");
+  async function route(input: string | RouteInput): Promise<RouteResult> {
+    const request: RouteInput =
+      typeof input === "string" ? { prompt: input } : input;
+
+    // 1. Deterministic signals: cheap, and they can decide without embedding.
+    const decision = checkSignals(request, signals);
+    if (decision.type === "escalate") return failOpen(decision.reason);
+    if (decision.type === "route") {
+      const forced = routes[decision.route];
+      // Validated at creation, but stay defensive rather than throw at runtime.
+      if (forced) {
+        return {
+          route: decision.route,
+          model: forced.model,
+          score: 1,
+          fallback: false,
+          reason: decision.reason,
+        };
+      }
+      return failOpen(decision.reason);
+    }
 
     // 2. Semantic match.
     try {
       const seeds = await loadSeeds();
       if (seeds.length === 0) return failOpen("no-seeds");
 
-      const embedded = await embed.embed([prompt]);
+      const embedded = await embed.embed([request.prompt]);
       const queryVector = embedded[0];
       if (!queryVector) return failOpen("no-embedding");
 
