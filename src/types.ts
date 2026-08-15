@@ -1,51 +1,53 @@
 /**
  * Core types for orfora's routing API.
  *
- * v1 is deliberately two-tier — a cheap "simple" model and a strong "complex"
- * model — because that covers the dominant cost/quality trade-off with the
- * least surface area. Multi-tier is a later extension, not a v1 concern.
+ * A router is a set of named **routes**. Each route has a target model and a few
+ * seed examples that characterise the kind of request it should catch. orfora
+ * embeds the seeds once, then routes each request to the route whose seeds it is
+ * most similar to. This single shape covers cost routing (routes = simple /
+ * complex), capability routing (coding / writing / qa -> different models), and
+ * anything else — same engine, different routes.
  */
 
-/** The routing tiers. "simple" = cheap model, "complex" = strong model. */
-export type Tier = "simple" | "complex";
-
-/**
- * Turns text into vectors. Batched on purpose: seeds are embedded once at setup
- * and each request is embedded per call, so a caller can hand us many strings at
- * once and let the backend batch them. Pluggable by design — orfora never hard-
- * wires a specific embedding vendor.
- */
+/** Turns text into vectors. Batched so seeds and requests can be embedded together. */
 export interface EmbeddingProvider {
   embed(texts: string[]): Promise<number[][]>;
 }
 
-/** A labeled example that anchors what "simple" vs "complex" means for an app. */
-export interface Seed {
-  text: string;
-  tier: Tier;
+/** A named destination: the model to use, and the seeds that select it. */
+export interface Route {
+  /** The model to use when this route is chosen. */
+  model: string;
+  /** Example prompts that characterise this route. Embedded once, on first use. */
+  seeds: string[];
+}
+
+export interface RouterConfig {
+  /** Named routes, e.g. `{ simple: {...}, complex: {...} }`. */
+  routes: Record<string, Route>;
+  /**
+   * Route to use when the decision is unclear or errors — orfora's fail-open
+   * guarantee. Must be one of the keys in `routes` (typically the strong model).
+   */
+  fallback: string;
+  /** Backend that turns text into vectors. Bring your own, or use an adapter. */
+  embed: EmbeddingProvider;
+  /**
+   * Minimum cosine similarity to the nearest seed required to trust a decision.
+   * Below it, orfora returns the fallback route. Defaults to 0 (trust the nearest
+   * non-negative match); raise it to route more conservatively.
+   */
+  threshold?: number;
 }
 
 /** The outcome of a routing decision. */
 export interface RouteResult {
-  tier: Tier;
-  /** The concrete model, mapped from the chosen tier via `config.tiers`. */
+  /** The chosen route name. */
+  route: string;
+  /** The model mapped from the chosen route. */
   model: string;
-}
-
-export interface RouterConfig {
-  /** Maps each tier to the concrete model name the caller wants to use. */
-  tiers: Record<Tier, string>;
-  /** Backend that turns text into vectors. */
-  embed: EmbeddingProvider;
-  /**
-   * Labeled examples that define "simple" vs "complex" for THIS app. Optional:
-   * when omitted, orfora falls back to built-in generic seeds (added later).
-   */
-  seeds?: Seed[];
-  /**
-   * Minimum similarity confidence required to downgrade to "simple". Below it,
-   * orfora fails open to "complex" so quality is never sacrificed. Sensible
-   * defaults are calibrated in a later commit.
-   */
-  threshold?: number;
+  /** Cosine similarity to the nearest seed of the chosen route. */
+  score: number;
+  /** True when orfora fell back (low confidence, no seeds, or an error). */
+  fallback: boolean;
 }
