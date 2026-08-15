@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createRouter } from "./router";
 import type { EmbeddingProvider, RouterConfig } from "./types";
 
@@ -58,6 +58,7 @@ describe("createRouter", () => {
     const result = await makeRouter({ threshold: 0.999 }).route("sum 3 and 4");
     expect(result.route).toBe("complex");
     expect(result.fallback).toBe(true);
+    expect(result.reason).toBe("below-threshold");
   });
 
   it("fails open when the embedder throws", async () => {
@@ -69,6 +70,19 @@ describe("createRouter", () => {
     const result = await makeRouter({ embed: boom }).route("sum 3 and 4");
     expect(result.route).toBe("complex");
     expect(result.fallback).toBe(true);
+    expect(result.reason).toBe("error");
+  });
+
+  it("escalates on a length signal without paying for an embedding", async () => {
+    const embed = vi.fn(async (texts: string[]) => texts.map(() => [1, 0]));
+    const result = await makeRouter({
+      embed: { embed },
+      signals: { maxChars: 5 },
+    }).route("this is a long prompt");
+    expect(result.route).toBe("complex");
+    expect(result.fallback).toBe(true);
+    expect(result.reason).toBe("signal:length");
+    expect(embed).not.toHaveBeenCalled();
   });
 
   it("throws when fallback is not a defined route", () => {

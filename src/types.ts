@@ -22,6 +22,25 @@ export interface Route {
   seeds: string[];
 }
 
+/**
+ * Deterministic, embedding-free signals checked BEFORE any semantic comparison.
+ * When one fires, orfora escalates straight to the `fallback` route and skips the
+ * embedding call entirely — both a safety guard (don't downgrade risky requests)
+ * and a cost saving (no embedding paid).
+ */
+export interface SignalConfig {
+  /**
+   * Escalate to `fallback` when the prompt exceeds this many characters. Long
+   * prompts are risky to downgrade to a cheap model. Off when undefined.
+   */
+  maxChars?: number;
+  /**
+   * Escalate to `fallback` when the prompt looks multi-intent (several questions
+   * or a list of tasks in one request). Off when false/undefined.
+   */
+  multiIntent?: boolean;
+}
+
 export interface RouterConfig {
   /** Named routes, e.g. `{ simple: {...}, complex: {...} }`. */
   routes: Record<string, Route>;
@@ -38,6 +57,8 @@ export interface RouterConfig {
    * non-negative match); raise it to route more conservatively.
    */
   threshold?: number;
+  /** Optional deterministic escalation signals, checked before embedding. */
+  signals?: SignalConfig;
 }
 
 /** The outcome of a routing decision. */
@@ -48,6 +69,12 @@ export interface RouteResult {
   model: string;
   /** Cosine similarity to the nearest seed of the chosen route. */
   score: number;
-  /** True when orfora fell back (low confidence, no seeds, or an error). */
+  /** True when orfora fell back (a signal fired, low confidence, or an error). */
   fallback: boolean;
+  /**
+   * Why the decision was made when it isn't a plain semantic match — e.g.
+   * "signal:length", "signal:multi-intent", "below-threshold", "error". Absent on
+   * a normal nearest-seed match.
+   */
+  reason?: string;
 }

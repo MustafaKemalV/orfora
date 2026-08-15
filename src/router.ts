@@ -1,16 +1,19 @@
+import { checkSignals } from "./signals";
 import { cosineSimilarity } from "./similarity";
 import type { RouteResult, RouterConfig } from "./types";
 
 /**
  * Creates a router bound to a config, exposing `route(prompt)`.
  *
- * The decision is pure math: embed the seeds once, embed the request, pick the
- * route whose nearest seed is most similar. No LLM call is made to decide, so it
- * is fast and cheap. If confidence is below `threshold`, or anything throws, it
- * fails open to `fallback` — orfora never trades away quality on a bad guess.
+ * Order of decision:
+ *   1. Deterministic signals (cheap, no embedding) — can escalate to `fallback`.
+ *   2. Semantic match: embed seeds once, embed the request, pick the route whose
+ *      nearest seed is most similar.
+ * If confidence is below `threshold`, or anything throws, it fails open to
+ * `fallback` — orfora never trades away quality on a bad guess.
  */
 export function createRouter(config: RouterConfig) {
-  const { routes, fallback, embed, threshold = 0 } = config;
+  const { routes, fallback, embed, threshold = 0, signals } = config;
 
   // Validate eagerly: a misconfigured router should fail at creation, not on the
   // first production request.
@@ -55,21 +58,28 @@ export function createRouter(config: RouterConfig) {
     return seedVectors;
   }
 
-  const failOpen = (): RouteResult => ({
+  const failOpen = (reason: string): RouteResult => ({
     route: fallback,
     model: fallbackRoute.model,
     score: 0,
     fallback: true,
+    reason,
   });
 
   async function route(prompt: string): Promise<RouteResult> {
+    // 1. Deterministic signals first: cheap, and they can short-circuit to the
+    //    safe route without paying for an embedding at all.
+    const signal = checkSignals(prompt, signals);
+    if (signal.escalate) return failOpen(signal.reason ?? "signal");
+
+    // 2. Semantic match.
     try {
       const seeds = await loadSeeds();
-      if (seeds.length === 0) return failOpen();
+      if (seeds.length === 0) return failOpen("no-seeds");
 
       const embedded = await embed.embed([prompt]);
       const queryVector = embedded[0];
-      if (!queryVector) return failOpen();
+      if (!queryVector) return failOpen("no-embedding");
 
       let bestRoute = fallback;
       let bestScore = Number.NEGATIVE_INFINITY;
@@ -81,10 +91,10 @@ export function createRouter(config: RouterConfig) {
         }
       }
 
-      if (bestScore < threshold) return failOpen();
+      if (bestScore < threshold) return failOpen("below-threshold");
 
       const chosen = routes[bestRoute];
-      if (!chosen) return failOpen();
+      if (!chosen) return failOpen("no-route");
 
       return {
         route: bestRoute,
@@ -94,7 +104,7 @@ export function createRouter(config: RouterConfig) {
       };
     } catch {
       // Fail open: a routing failure must never take down the caller.
-      return failOpen();
+      return failOpen("error");
     }
   }
 

@@ -17,4 +17,5 @@ export type {
   Route,
   RouteResult,
   RouterConfig,
+  SignalConfig,
 } from "./types";
