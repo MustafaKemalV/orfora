@@ -1,5 +1,5 @@
 /**
- * Cosine similarity — the whole "semantic" comparison orfora needs. Kept as a
+ * Cosine similarity, the whole "semantic" comparison orfora needs. Kept as a
  * tiny, dependency-free function on purpose: at orfora's scale (one request vs a
  * small set of seeds) this is microseconds, and pulling in a math library would
  * be pure weight.

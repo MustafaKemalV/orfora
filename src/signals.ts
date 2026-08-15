@@ -19,7 +19,7 @@ const MODALITY_PRIORITY: Modality[] = [
 /**
  * Deterministic checks that run before any embedding. When one fires, orfora
  * either routes to a specific route (modality) or escalates to the fallback
- * (length / multi-intent) — in both cases skipping the embedding call.
+ * (length / multi-intent), in both cases skipping the embedding call.
  */
 export function checkSignals(
   input: RouteInput,
@@ -27,14 +27,14 @@ export function checkSignals(
 ): SignalDecision {
   if (!signals) return { type: "none" };
 
-  // 1. Attachment / modality routing — most specific, so it goes first.
+  // 1. Attachment / modality routing, most specific, so it goes first.
   const attachments = input.attachments ?? [];
   if (attachments.length > 0) {
     const present = new Set<Modality>(attachments.map(normalizeModality));
 
     if (signals.onModality) {
       // Normalise the user's keys too, so "video", "video/mp4" and "mp4" all map
-      // to the same modality — no misses from formatting.
+      // to the same modality, no misses from formatting.
       const byModality = new Map<Modality, string>();
       for (const [key, target] of Object.entries(signals.onModality)) {
         const canon = normalizeModality(key);
@@ -78,7 +78,7 @@ export function checkSignals(
 }
 
 /**
- * Coarse multi-intent heuristic — intentionally simple and tunable: two or more
+ * Coarse multi-intent heuristic, intentionally simple and tunable: two or more
  * questions, or an enumerated/bulleted list of two or more items. It is a guard,
  * not a parser; when unsure it does nothing and lets the semantic router decide.
  */

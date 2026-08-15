@@ -19,8 +19,8 @@ export interface ComplexityRouterConfig {
 
 /**
  * The friendly front door for the headline use case: two-tier cost routing with
- * built-in seeds. A thin wrapper over {@link createRouter} — same engine, no
- * separate logic — so the primitive stays the single source of truth.
+ * built-in seeds. A thin wrapper over {@link createRouter}, same engine, no
+ * separate logic, so the primitive stays the single source of truth.
  *
  * ```ts
  * const router = complexityRouter({

@@ -2,22 +2,37 @@
 
 > Route each LLM request to the right-sized model. Cut cost, keep quality.
 
-**orfora** (*Optimal Routes For All*) is a lightweight semantic router for LLM
-apps. It sends each request to the right-sized model, a cheap model for trivial
-requests and a strong one for the requests that actually need reasoning, decided
-by **meaning** rather than by message length.
+Most LLM apps send every request to one big model. But most requests do not need
+it: a short rewrite, a classification, or a quick factual answer runs just as well
+on a model that costs a fraction. **orfora** (*Optimal Routes For All*) looks at
+each request and picks the right-sized model for it, so you stop overpaying for
+the easy ones without giving up quality on the hard ones.
 
-The decision is pure math plus a small embedding, so no extra LLM call is made
-just to route. It is fast (milliseconds) and adds negligible cost. orfora returns
-a *decision*, so it never sits in front of your model calls: no proxy hop, no
-single point of failure.
+It decides by **meaning**, not by length. Length is a poor proxy: a two-line
+prompt can need deep reasoning, and a long one can be a trivial reformat. orfora
+compares each request to a handful of example prompts you provide (or the built-in
+defaults) and routes to the closest match. The decision is pure math plus a small
+embedding, so no extra LLM call is made just to route. It is fast (milliseconds)
+and adds negligible cost.
 
-> ⚠️ **Status: early development.** The core works and is tested, but the API may
-> still change and it is not published to npm yet.
+orfora returns a *decision*, it does not sit in front of your model calls. There
+is no proxy hop, no extra service to run, and no single point of failure.
+
+> **Status: early development.** The core works and is covered by tests. The API
+> may still change, and it is not published to npm yet.
+
+## Install
+
+```sh
+npm install orfora
+```
+
+You also need an embedding backend. orfora ships an OpenAI-compatible one, or you
+can bring your own.
 
 ## Quickstart
 
-The headline case, two-tier cost routing with built-in seeds:
+Two-tier cost routing, using the built-in seeds:
 
 ```ts
 import { complexityRouter } from "orfora";
@@ -29,11 +44,11 @@ const router = complexityRouter({
   embed: openaiEmbedder({ apiKey: process.env.OPENAI_API_KEY }),
 });
 
-const { model, route } = await router.route("Summarize this paragraph in one line.");
-// returns { route: "simple", model: "gpt-4o-mini", score: ..., fallback: false }
+const { model } = await router.route("Summarize this paragraph in one line.");
+// model === "gpt-4o-mini"  (an easy request, so it takes the cheap model)
 
-// orfora decided WHICH model. You make the actual call, with your own client:
-// const answer = await openai.chat.completions.create({ model, messages: [...] });
+// orfora only decides which model. You make the call, with your own client:
+// const answer = await openai.chat.completions.create({ model, messages });
 ```
 
 ## Custom routes
@@ -65,12 +80,26 @@ const decision = await router.route({
   prompt: "what's in this photo?",
   attachments: ["photo.png"],
 });
-// returns { route: "vision", model: "gpt-4o", reason: "signal:modality:image", fallback: false }
+// decision.route === "vision", decision.reason === "signal:modality:image"
 ```
 
 `openaiEmbedder` takes a `baseURL`, so it also works with any OpenAI-compatible
 provider (Together, OpenRouter, a local Ollama). Or bring your own embedder: any
-`{ embed(texts: string[]): Promise<number[][]> }` works.
+object with `embed(texts: string[]): Promise<number[][]>` works.
+
+## Tuning
+
+A few knobs decide how aggressive the routing is:
+
+- **Seeds.** A handful per route is enough to start, five to ten each. The closer
+  they are to your real traffic, the better it routes. Override the defaults any
+  time with your own labelled examples.
+- **threshold.** The minimum confidence needed to trust a match. Leave it at `0`
+  to always take the nearest route, or raise it to fall back to the strong model
+  more often when the router is unsure.
+- **signals.** Deterministic guards that run before the embedding: escalate very
+  long or multi-intent prompts, and send attachments to a model that can handle
+  them.
 
 ## How it works
 
@@ -101,10 +130,10 @@ decision library, and that is the point:
 - **Provider-agnostic and composable.** It returns a model id, so you can use it
   standalone or feed that decision into a gateway you already run.
 
-**Honest scope:** orfora does one thing, pick the model. It is not a
-feature-for-feature gateway replacement (no unified multi-provider API, no
-load-balancing, no spend dashboards), and it happily complements one. Its decision
-still costs one embedding call, so use a local embedder if you want zero network.
+It does one thing, pick the model. It is not a feature-for-feature gateway
+replacement (no unified multi-provider API, no load balancing, no spend
+dashboards), and it happily complements one. Its decision still costs one
+embedding call, so use a local embedder if you want zero network.
 
 ## Roadmap
 

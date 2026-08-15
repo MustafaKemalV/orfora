@@ -6,12 +6,12 @@ import type { RouteInput, RouteResult, RouterConfig } from "./types";
  * Creates a router bound to a config, exposing `route(input)`.
  *
  * Order of decision:
- *   1. Deterministic signals (cheap, no embedding) — route by attachment
+ *   1. Deterministic signals (cheap, no embedding), route by attachment
  *      modality, or escalate to `fallback` on length / multi-intent.
  *   2. Semantic match: embed seeds once, embed the request, pick the route whose
  *      nearest seed is most similar.
  * If confidence is below `threshold`, or anything throws, it fails open to
- * `fallback` — orfora never trades away quality on a bad guess.
+ * `fallback`, orfora never trades away quality on a bad guess.
  */
 export function createRouter(config: RouterConfig) {
   const { routes, fallback, embed, threshold = 0, signals } = config;

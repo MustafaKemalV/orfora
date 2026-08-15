@@ -1,9 +1,9 @@
 /**
- * orfora — Optimal Routes For All.
+ * orfora: Optimal Routes For All.
  *
- * A semantic router for LLM apps: route each request to the right-sized model —
+ * A semantic router for LLM apps: route each request to the right-sized model,
  * a cheap model for trivial requests, a strong model for the ones that actually
- * need reasoning — decided by meaning (embeddings + math), not by message length.
+ * need reasoning, decided by meaning (embeddings + math), not by message length.
  */
 
 export const VERSION = "0.0.0";

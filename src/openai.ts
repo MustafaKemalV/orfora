@@ -17,7 +17,7 @@ export interface OpenAIEmbedderOptions {
 /**
  * An {@link EmbeddingProvider} backed by the OpenAI embeddings endpoint.
  *
- * Uses plain `fetch` on purpose — no SDK dependency, so it runs unchanged on
+ * Uses plain `fetch` on purpose, no SDK dependency, so it runs unchanged on
  * Node, the edge, and the browser. `baseURL` makes it work with any
  * OpenAI-compatible API, not just OpenAI itself.
  */
@@ -42,7 +42,7 @@ export function openaiEmbedder(
 
   return {
     async embed(texts) {
-      // Nothing to embed — avoid a pointless network round-trip.
+      // Nothing to embed, avoid a pointless network round-trip.
       if (texts.length === 0) return [];
 
       const res = await fetchImpl(`${baseURL}/embeddings`, {

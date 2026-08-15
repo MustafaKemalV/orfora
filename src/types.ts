@@ -6,7 +6,7 @@
  * embeds the seeds once, then routes each request to the route whose seeds it is
  * most similar to. This single shape covers cost routing (routes = simple /
  * complex), capability routing (coding / writing / qa -> different models), and
- * anything else — same engine, different routes.
+ * anything else, same engine, different routes.
  */
 
 /** Turns text into vectors. Batched so seeds and requests can be embedded together. */
@@ -36,7 +36,7 @@ export interface RouteInput {
 /**
  * Deterministic, embedding-free signals checked BEFORE any semantic comparison.
  * They can escalate a request to `fallback` (risky-to-downgrade cases) or route
- * it by attachment modality — both without paying for an embedding.
+ * it by attachment modality, both without paying for an embedding.
  */
 export interface SignalConfig {
   /**
@@ -51,7 +51,7 @@ export interface SignalConfig {
   multiIntent?: boolean;
   /**
    * Route to use when a request has ANY attachment and no `onModality` mapping
-   * matches — a catch-all. Must be one of the defined routes.
+   * matches, a catch-all. Must be one of the defined routes.
    */
   onAttachment?: string;
   /**
@@ -67,7 +67,7 @@ export interface RouterConfig {
   /** Named routes, e.g. `{ simple: {...}, complex: {...} }`. */
   routes: Record<string, Route>;
   /**
-   * Route to use when the decision is unclear or errors — orfora's fail-open
+   * Route to use when the decision is unclear or errors, orfora's fail-open
    * guarantee. Must be one of the keys in `routes` (typically the strong model).
    */
   fallback: string;
@@ -94,7 +94,7 @@ export interface RouteResult {
   /** True when orfora fell open to `fallback` (low confidence, or an error). */
   fallback: boolean;
   /**
-   * Why the decision was made when it isn't a plain semantic match — e.g.
+   * Why the decision was made when it isn't a plain semantic match, e.g.
    * "signal:modality:video", "signal:length", "below-threshold", "error". Absent
    * on a normal nearest-seed match.
    */

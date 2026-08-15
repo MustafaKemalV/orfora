@@ -1,11 +1,11 @@
 /**
  * Modality detection for attachments.
  *
- * The caller passes attachment descriptors as strings — MIME types
+ * The caller passes attachment descriptors as strings, MIME types
  * ("image/png"), file names or bare extensions ("clip.mp4", ".mp4", "mp4"), or
  * plain words ("photo", "voice"). We normalise all of these into a small set of
  * canonical modalities so routing never misses a type because of formatting.
- * Anything unrecognised becomes "other" — it is never silently dropped.
+ * Anything unrecognised becomes "other", it is never silently dropped.
  */
 export type Modality = "image" | "video" | "audio" | "document" | "other";
 
