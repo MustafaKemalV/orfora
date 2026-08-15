@@ -1,0 +1,49 @@
+{
+  "name": "orfora",
+  "version": "0.0.0",
+  "description": "Optimal Routes For All — a semantic router for LLM apps. Route each request to the right-sized model. Cut cost, keep quality.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Mustafa Kemal Vural",
+  "keywords": [
+    "llm",
+    "router",
+    "semantic-router",
+    "embeddings",
+    "cost-optimization",
+    "ai",
+    "routing"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
