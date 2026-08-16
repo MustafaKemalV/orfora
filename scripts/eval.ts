@@ -9,6 +9,14 @@ import { openaiEmbedder } from "../src/openai";
  * cents. This is a dev script, not part of the automated test suite.
  */
 async function main() {
+  // Load a local .env if present, so `npm run eval` works after you copy
+  // .env.example. Falls back to the ambient environment when there is no file.
+  try {
+    process.loadEnvFile();
+  } catch {
+    // no .env file; use the ambient environment
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.error(
