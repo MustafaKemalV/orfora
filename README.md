@@ -116,6 +116,20 @@ A few knobs decide how aggressive the routing is:
 It routes by task complexity and intent, not by subject, so it generalises across
 domains.
 
+## Does it actually route well?
+
+On a 40-example labelled set (kept separate from the seeds, embedded with
+`text-embedding-3-small`), orfora scored:
+
+- **95% accuracy**
+- **100% complex-recall**: it never sent a hard request to the cheap model
+- **90% simple-recall**: it sent 18 of 20 easy requests to the cheap model
+- **45% of requests routed to the cheap model**
+
+Complex-recall is the number that matters most. orfora is built never to trade
+quality for cost, and on this set it never did. Reproduce it with `npm run eval`
+using your own OpenAI-compatible key.
+
 ## Why orfora (vs LLM gateways)
 
 orfora is not a gateway or proxy like LiteLLM or OpenRouter. It is a small
