@@ -29,7 +29,13 @@ async function main() {
   const router = complexityRouter({
     simple: "gpt-4o-mini",
     complex: "gpt-4o",
-    embed: openaiEmbedder({ apiKey }),
+    // baseURL / model default to OpenAI, or point at any OpenAI-compatible
+    // provider (OpenRouter, Together, ...) via env.
+    embed: openaiEmbedder({
+      apiKey,
+      baseURL: process.env.OPENAI_BASE_URL,
+      model: process.env.OPENAI_EMBED_MODEL,
+    }),
   });
 
   const report = await evaluate(router, evalDataset);
