@@ -1,7 +1,7 @@
 {
   "name": "orfora",
   "version": "0.0.0",
-  "description": "Optimal Routes For All — a semantic router for LLM apps. Route each request to the right-sized model. Cut cost, keep quality.",
+  "description": "Optimal Routes For All: a semantic router for LLM apps. Route each request to the right-sized model. Cut cost, keep quality.",
   "type": "module",
   "license": "MIT",
   "author": "Mustafa Kemal Vural",
@@ -27,6 +27,11 @@
       "types": "./dist/openai.d.ts",
       "import": "./dist/openai.js",
       "require": "./dist/openai.cjs"
+    },
+    "./local": {
+      "types": "./dist/local.d.ts",
+      "import": "./dist/local.js",
+      "require": "./dist/local.cjs"
     }
   },
   "files": [
@@ -39,6 +44,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "eval": "tsx scripts/eval.ts",
+    "test:integration": "ORFORA_INTEGRATION=1 vitest run",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
@@ -47,10 +53,19 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",
+    "@huggingface/transformers": "^4.2.0",
     "@types/node": "^26.2.0",
     "tsup": "^8.5.1",
     "tsx": "^4.23.12",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@huggingface/transformers": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@huggingface/transformers": {
+      "optional": true
+    }
   }
 }
