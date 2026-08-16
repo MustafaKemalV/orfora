@@ -27,8 +27,9 @@ is no proxy hop, no extra service to run, and no single point of failure.
 npm install orfora
 ```
 
-You also need an embedding backend. orfora ships an OpenAI-compatible one, or you
-can bring your own.
+You also need an embedding backend. orfora ships two, or you can bring your own:
+`orfora/openai` (any OpenAI-compatible API) and `orfora/local` (runs a small model
+on device via transformers.js, no API key).
 
 ## Quickstart
 
@@ -86,6 +87,30 @@ const decision = await router.route({
 `openaiEmbedder` takes a `baseURL`, so it also works with any OpenAI-compatible
 provider (Together, OpenRouter, a local Ollama). Or bring your own embedder: any
 object with `embed(texts: string[]): Promise<number[][]>` works.
+
+## Run the model too (optional)
+
+By default orfora returns a decision and you make the call. If you would rather it
+call the model for you, give it a handler per model and use `run()`. orfora still
+never imports a provider SDK, it only calls the function you supply:
+
+```ts
+const router = createRouter({
+  routes: {
+    chat: { model: "gpt-4o-mini", seeds: ["hi", "what's the weather like"] },
+    reasoning: { model: "gpt-4o", seeds: ["prove that...", "design a system that..."] },
+  },
+  fallback: "reasoning",
+  embed: openaiEmbedder({ apiKey: process.env.OPENAI_API_KEY }),
+  handlers: {
+    "gpt-4o-mini": (input) => callModel("gpt-4o-mini", input.prompt),
+    "gpt-4o": (input) => callModel("gpt-4o", input.prompt),
+  },
+});
+
+const answer = await router.run("Summarize this in one line.");
+// orfora picks the model, calls your handler for it, and returns its result.
+```
 
 ## Tuning
 
@@ -149,13 +174,17 @@ replacement (no unified multi-provider API, no load balancing, no spend
 dashboards), and it happily complements one. Its decision still costs one
 embedding call, so use a local embedder if you want zero network.
 
+## Playground
+
+A no-key browser demo lives in `playground/` (it runs the local embedder in the
+browser). Try it locally with `cd playground && npm install && npm run dev`.
+
 ## Roadmap
 
 - Broader default seeds and domain presets (support bot, coding assistant, and so on)
-- A local, no-API-key embedding backend (`orfora/local`)
-- An optional bridge that runs the chosen model via handlers you provide
 - Auto-calibration that suggests thresholds from real traffic
-- A small web playground
+- More embedding backends
+- Optional feedback-based adjustment from real outcomes
 
 ## License
 
