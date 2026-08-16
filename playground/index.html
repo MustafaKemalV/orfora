@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>orfora playground</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>orfora</h1>
+      <p>
+        Type a request and see which model it routes to. This runs fully in your
+        browser with no API key. The first run downloads a small embedding model.
+      </p>
+      <textarea
+        id="prompt"
+        rows="3"
+        placeholder="e.g. Summarize this paragraph in one line."
+      ></textarea>
+      <button id="run" type="button">Route</button>
+      <pre id="output"></pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
