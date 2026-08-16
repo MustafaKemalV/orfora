@@ -63,7 +63,7 @@ export interface SignalConfig {
   onModality?: Record<string, string>;
 }
 
-export interface RouterConfig {
+export interface RouterConfig<TOutput = unknown> {
   /** Named routes, e.g. `{ simple: {...}, complex: {...} }`. */
   routes: Record<string, Route>;
   /**
@@ -81,6 +81,12 @@ export interface RouterConfig {
   threshold?: number;
   /** Optional deterministic signals, checked before embedding. */
   signals?: SignalConfig;
+  /**
+   * Optional handlers that turn orfora from a decision into a bridge: map each
+   * model to a function that calls it. `run()` decides, then invokes the handler
+   * for the chosen model. orfora never calls a provider itself.
+   */
+  handlers?: Record<string, RouteHandler<TOutput>>;
 }
 
 /** The outcome of a routing decision. */
@@ -100,3 +106,12 @@ export interface RouteResult {
    */
   reason?: string;
 }
+
+/**
+ * Turns a routing decision into a real model call. You supply one per model, and
+ * orfora calls it, so no provider SDK is ever bundled into orfora.
+ */
+export type RouteHandler<TOutput = unknown> = (
+  input: RouteInput,
+  decision: RouteResult,
+) => Promise<TOutput> | TOutput;

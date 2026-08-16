@@ -19,6 +19,7 @@ export { defaultSeeds } from "./seeds";
 export type {
   EmbeddingProvider,
   Route,
+  RouteHandler,
   RouteInput,
   RouteResult,
   RouterConfig,

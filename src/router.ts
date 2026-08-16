@@ -13,8 +13,8 @@ import type { RouteInput, RouteResult, RouterConfig } from "./types";
  * If confidence is below `threshold`, or anything throws, it fails open to
  * `fallback`, orfora never trades away quality on a bad guess.
  */
-export function createRouter(config: RouterConfig) {
-  const { routes, fallback, embed, threshold = 0, signals } = config;
+export function createRouter<TOutput = unknown>(config: RouterConfig<TOutput>) {
+  const { routes, fallback, embed, threshold = 0, signals, handlers } = config;
 
   // Validate eagerly: a misconfigured router should fail at creation, not on the
   // first production request.
@@ -41,6 +41,16 @@ export function createRouter(config: RouterConfig) {
       if (!routes[target]) {
         throw new Error(
           `orfora: signals.onModality.${modality} -> "${target}" is not one of the defined routes.`,
+        );
+      }
+    }
+  }
+
+  if (handlers) {
+    for (const [name, r] of routeEntries) {
+      if (!handlers[r.model]) {
+        throw new Error(
+          `orfora: config.handlers is missing a handler for route "${name}" (model "${r.model}").`,
         );
       }
     }
@@ -139,5 +149,19 @@ export function createRouter(config: RouterConfig) {
     }
   }
 
-  return { route };
+  async function run(input: string | RouteInput): Promise<TOutput> {
+    if (!handlers) {
+      throw new Error("orfora: run() requires config.handlers.");
+    }
+    const request: RouteInput =
+      typeof input === "string" ? { prompt: input } : input;
+    const decision = await route(request);
+    const handler = handlers[decision.model];
+    if (!handler) {
+      throw new Error(`orfora: no handler for model "${decision.model}".`);
+    }
+    return handler(request, decision);
+  }
+
+  return { route, run };
 }

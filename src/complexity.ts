@@ -1,8 +1,8 @@
 import { createRouter } from "./router";
 import { defaultSeeds } from "./seeds";
-import type { EmbeddingProvider, SignalConfig } from "./types";
+import type { EmbeddingProvider, RouteHandler, SignalConfig } from "./types";
 
-export interface ComplexityRouterConfig {
+export interface ComplexityRouterConfig<TOutput = unknown> {
   /** Model for simple requests (the cheap one). */
   simple: string;
   /** Model for complex requests (the strong one). Also the fail-open fallback. */
@@ -15,6 +15,8 @@ export interface ComplexityRouterConfig {
   threshold?: number;
   /** Optional deterministic signals (length, multi-intent, attachments). */
   signals?: SignalConfig;
+  /** Optional handlers to call the chosen model via `run()` (see createRouter). */
+  handlers?: Record<string, RouteHandler<TOutput>>;
 }
 
 /**
@@ -30,9 +32,11 @@ export interface ComplexityRouterConfig {
  * });
  * ```
  */
-export function complexityRouter(config: ComplexityRouterConfig) {
+export function complexityRouter<TOutput = unknown>(
+  config: ComplexityRouterConfig<TOutput>,
+) {
   const seeds = config.seeds ?? defaultSeeds;
-  return createRouter({
+  return createRouter<TOutput>({
     routes: {
       simple: { model: config.simple, seeds: seeds.simple },
       complex: { model: config.complex, seeds: seeds.complex },
@@ -41,5 +45,6 @@ export function complexityRouter(config: ComplexityRouterConfig) {
     embed: config.embed,
     threshold: config.threshold,
     signals: config.signals,
+    handlers: config.handlers,
   });
 }

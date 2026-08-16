@@ -123,4 +123,27 @@ describe("createRouter", () => {
   it("throws when fallback is not a defined route", () => {
     expect(() => makeRouter({ fallback: "nope" })).toThrow(/fallback/);
   });
+
+  it("run() decides and calls the matching model handler", async () => {
+    const router = makeRouter({
+      handlers: {
+        "cheap-model": async (input) => `cheap:${input.prompt}`,
+        "strong-model": async (input) => `strong:${input.prompt}`,
+      },
+    });
+    expect(await router.run("sum 3 and 4")).toBe("cheap:sum 3 and 4");
+    expect(await router.run("architect a fault-tolerant queue")).toBe(
+      "strong:architect a fault-tolerant queue",
+    );
+  });
+
+  it("run() throws when no handlers are configured", async () => {
+    await expect(makeRouter().run("hi")).rejects.toThrow(/handlers/);
+  });
+
+  it("throws at creation if a route model has no handler", () => {
+    expect(() =>
+      makeRouter({ handlers: { "cheap-model": async () => "x" } }),
+    ).toThrow(/handler/);
+  });
 });
