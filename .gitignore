@@ -19,3 +19,6 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Local-only notes, not published
+GUIDE.md

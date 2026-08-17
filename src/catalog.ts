@@ -58,7 +58,7 @@ export const capabilities: Capability[] = [
  * the grid and signal targets always have a real destination.
  */
 export const catalog: CatalogModel[] = [
-  // Claude — coding and writing strength, long context.
+  // Claude: coding and writing strength, long context.
   {
     id: "anthropic/claude-opus-5",
     family: "Claude",
@@ -92,7 +92,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 5,
   },
 
-  // GPT — general and reasoning flagships, plus a coding-tuned Codex.
+  // GPT: general and reasoning flagships, plus a coding-tuned Codex.
   {
     id: "openai/gpt-5.6-sol",
     family: "GPT",
@@ -150,7 +150,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.4,
   },
 
-  // Gemini — broad multimodal, huge context, strong translation.
+  // Gemini: broad multimodal, huge context, strong translation.
   {
     id: "google/gemini-3.1-pro-preview",
     family: "Gemini",
@@ -192,7 +192,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.45,
   },
 
-  // DeepSeek — strong reasoning and math per dollar.
+  // DeepSeek: strong reasoning and math per dollar.
   {
     id: "deepseek/deepseek-v4-pro",
     family: "DeepSeek",
@@ -226,7 +226,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.4,
   },
 
-  // Qwen — cheap generalists, coding and vision specialists.
+  // Qwen: cheap generalists, coding and vision specialists.
   {
     id: "qwen/qwen3.8-max",
     family: "Qwen",
@@ -268,7 +268,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.13,
   },
 
-  // Llama — open weights, very long context.
+  // Llama: open weights, very long context.
   {
     id: "meta-llama/llama-4-maverick",
     family: "Llama",
@@ -294,7 +294,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.32,
   },
 
-  // Mistral — efficient models, a coding-tuned Codestral, a multilingual Saba.
+  // Mistral: efficient models, a coding-tuned Codestral, a multilingual Saba.
   {
     id: "mistralai/mistral-large",
     family: "Mistral",
@@ -336,7 +336,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.6,
   },
 
-  // Grok — strong generalists.
+  // Grok: strong generalists.
   {
     id: "x-ai/grok-4.6",
     family: "Grok",
@@ -354,7 +354,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 2.5,
   },
 
-  // Kimi — long context, a coding-tuned variant.
+  // Kimi: long context, a coding-tuned variant.
   {
     id: "moonshotai/kimi-k3",
     family: "Kimi",
@@ -372,7 +372,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 3.5,
   },
 
-  // Cohere — enterprise and RAG tuning.
+  // Cohere: enterprise and RAG tuning.
   {
     id: "cohere/command-a",
     family: "Cohere",
@@ -390,7 +390,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.15,
   },
 
-  // Nova — Amazon's multimodal line.
+  // Nova: Amazon's multimodal line.
   {
     id: "amazon/nova-pro-v1",
     family: "Nova",
@@ -416,7 +416,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.14,
   },
 
-  // MiniMax — long-context multimodal.
+  // MiniMax: long-context multimodal.
   {
     id: "minimax/minimax-m3",
     family: "MiniMax",
@@ -426,7 +426,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 1.2,
   },
 
-  // GLM — a vision variant and a cheap flash.
+  // GLM: a vision variant and a cheap flash.
   {
     id: "z-ai/glm-5.2",
     family: "GLM",
@@ -452,7 +452,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.4,
   },
 
-  // Nemotron — NVIDIA open models, large context.
+  // Nemotron: NVIDIA open models, large context.
   {
     id: "nvidia/nemotron-3-ultra-550b-a55b",
     family: "Nemotron",
@@ -478,7 +478,7 @@ export const catalog: CatalogModel[] = [
     pricePerMTokens: 0.2,
   },
 
-  // Perplexity — the only live-web-search models in the catalog.
+  // Perplexity: the only live-web-search models in the catalog.
   {
     id: "perplexity/sonar-pro",
     family: "Perplexity",
