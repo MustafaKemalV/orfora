@@ -28,8 +28,15 @@ export { createCatalogRouter } from "./catalogRouter";
 export { capabilitySeeds, tierSeeds } from "./catalogSeeds";
 export type { ComplexityRouterConfig } from "./complexity";
 export { complexityRouter } from "./complexity";
-export type { EvalReport, LabeledExample, Routable } from "./evaluate";
-export { evaluate } from "./evaluate";
+export type {
+  CatalogEvalReport,
+  CatalogLabeledExample,
+  CatalogRoutable,
+  EvalReport,
+  LabeledExample,
+  Routable,
+} from "./evaluate";
+export { evaluate, evaluateCatalog } from "./evaluate";
 export type { Modality } from "./modality";
 export { normalizeModality } from "./modality";
 export { createRouter } from "./router";

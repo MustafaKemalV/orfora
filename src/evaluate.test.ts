@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluate, type Routable } from "./evaluate";
+import {
+  type CatalogRoutable,
+  evaluate,
+  evaluateCatalog,
+  type Routable,
+} from "./evaluate";
 import type { RouteInput } from "./types";
 
 // A stub router: any prompt starting with "hard" goes to complex, else simple.
@@ -33,5 +38,45 @@ describe("evaluate", () => {
     const report = await evaluate(stubRouter, []);
     expect(report.total).toBe(0);
     expect(report.accuracy).toBe(0);
+  });
+});
+
+// A stub catalog router: "code" in the prompt -> code, else general_qa; "hard" in
+// the prompt -> premium, else cheap.
+const stubCatalog: CatalogRoutable = {
+  route: async (input: string | RouteInput) => {
+    const prompt = typeof input === "string" ? input : input.prompt;
+    const target = prompt.includes("code") ? "code" : "general_qa";
+    const tier = prompt.includes("hard") ? "premium" : "cheap";
+    return { target, tier };
+  },
+};
+
+describe("evaluateCatalog", () => {
+  it("scores capability and tier independently, and both together", async () => {
+    const report = await evaluateCatalog(stubCatalog, [
+      { input: "code easy", capability: "code", tier: "cheap" },
+      { input: "code hard", capability: "code", tier: "premium" },
+      { input: "write easy", capability: "creative_writing", tier: "cheap" }, // wrong capability
+      { input: "general hard", capability: "general_qa", tier: "premium" },
+    ]);
+
+    expect(report.total).toBe(4);
+    expect(report.capabilityAccuracy).toBeCloseTo(0.75);
+    expect(report.tierAccuracy).toBeCloseTo(1);
+    expect(report.bothAccuracy).toBeCloseTo(0.75);
+    expect(report.capabilityRecall.code).toBeCloseTo(1);
+    expect(report.capabilityRecall.creative_writing).toBeCloseTo(0);
+    expect(report.tierRecall.cheap).toBeCloseTo(1);
+    expect(report.capabilityConfusion.creative_writing).toEqual({
+      general_qa: 1,
+    });
+  });
+
+  it("handles an empty set without dividing by zero", async () => {
+    const report = await evaluateCatalog(stubCatalog, []);
+    expect(report.total).toBe(0);
+    expect(report.capabilityAccuracy).toBe(0);
+    expect(report.tierAccuracy).toBe(0);
   });
 });
