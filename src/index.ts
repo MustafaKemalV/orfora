@@ -18,6 +18,7 @@ export {
   multilingualTiers,
   visionTiers,
 } from "./catalog";
+export { capabilitySeeds, tierSeeds } from "./catalogSeeds";
 export type { ComplexityRouterConfig } from "./complexity";
 export { complexityRouter } from "./complexity";
 export type { EvalReport, LabeledExample, Routable } from "./evaluate";
