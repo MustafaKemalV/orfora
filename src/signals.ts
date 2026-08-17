@@ -82,7 +82,7 @@ export function checkSignals(
  * questions, or an enumerated/bulleted list of two or more items. It is a guard,
  * not a parser; when unsure it does nothing and lets the semantic router decide.
  */
-function looksMultiIntent(prompt: string): boolean {
+export function looksMultiIntent(prompt: string): boolean {
   const questions = (prompt.match(/\?/g) ?? []).length;
   if (questions >= 2) return true;
 

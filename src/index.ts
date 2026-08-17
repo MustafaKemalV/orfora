@@ -18,6 +18,13 @@ export {
   multilingualTiers,
   visionTiers,
 } from "./catalog";
+export type {
+  CatalogDecision,
+  CatalogHandler,
+  CatalogRouterConfig,
+  RouteTarget,
+} from "./catalogRouter";
+export { createCatalogRouter } from "./catalogRouter";
 export { capabilitySeeds, tierSeeds } from "./catalogSeeds";
 export type { ComplexityRouterConfig } from "./complexity";
 export { complexityRouter } from "./complexity";
