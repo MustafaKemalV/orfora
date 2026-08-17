@@ -32,6 +32,11 @@
       "types": "./dist/local.d.ts",
       "import": "./dist/local.js",
       "require": "./dist/local.cjs"
+    },
+    "./openrouter": {
+      "types": "./dist/openrouter.d.ts",
+      "import": "./dist/openrouter.js",
+      "require": "./dist/openrouter.cjs"
     }
   },
   "files": [
