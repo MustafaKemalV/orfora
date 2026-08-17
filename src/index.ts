@@ -8,6 +8,16 @@
 
 export const VERSION = "0.0.0";
 
+export type { Capability, CatalogModel, PriceTier, Tier } from "./catalog";
+export {
+  capabilities,
+  capabilityGrid,
+  catalog,
+  findModel,
+  longContextTiers,
+  multilingualTiers,
+  visionTiers,
+} from "./catalog";
 export type { ComplexityRouterConfig } from "./complexity";
 export { complexityRouter } from "./complexity";
 export type { EvalReport, LabeledExample, Routable } from "./evaluate";
