@@ -59,3 +59,10 @@ export type {
   RouterConfig,
   SignalConfig,
 } from "./types";
+export type {
+  Gates,
+  VectorHandler,
+  VectorRouteDecision,
+  VectorRouterConfig,
+} from "./vectorRouter";
+export { createVectorRouter, matchModel } from "./vectorRouter";
