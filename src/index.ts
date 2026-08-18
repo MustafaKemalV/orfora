@@ -29,6 +29,13 @@ export { capabilitySeeds, tierSeeds } from "./catalogSeeds";
 export type { ComplexityRouterConfig } from "./complexity";
 export { complexityRouter } from "./complexity";
 export type {
+  DifficultyBands,
+  DifficultyOptions,
+  DifficultyResult,
+  DifficultyWeights,
+} from "./difficulty";
+export { scoreDifficulty } from "./difficulty";
+export type {
   CatalogEvalReport,
   CatalogLabeledExample,
   CatalogRoutable,
