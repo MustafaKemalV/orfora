@@ -59,6 +59,7 @@ export type {
   RouterConfig,
   SignalConfig,
 } from "./types";
+export { defaultVectorCatalog } from "./vectorCatalog";
 export type {
   Gates,
   VectorHandler,

@@ -56,6 +56,13 @@ export interface ModelVector {
   /** Soft capability scores in [0,1]. Absent keys mean "not sourced yet". */
   scores: Partial<Record<CapabilityScore, number>>;
 
+  /**
+   * Where the scores came from, for honesty. When a current model has no published
+   * benchmarks yet, its profile is carried forward from the family's latest MEASURED
+   * version (capability persists across versions), and this names that source so it
+   * is never mistaken for the current model's own measured numbers.
+   */
+  profileFrom?: string;
   /** Optional: how current the model's knowledge is, 0..1. */
   knowledgeRecency?: number;
   /** Optional opt-in domain specialisations, e.g. ["legal"]. */
