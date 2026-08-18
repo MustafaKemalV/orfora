@@ -2,7 +2,7 @@
  * The vector router: model-as-vector routing.
  *
  * Per request it embeds the prompt ONCE, then:
- *   1. finds the nearest capability seed -> the request's capability;
+ *   1. finds the nearest capability centroid -> the request's capability;
  *   2. finds the nearest tier seed -> the tier (the tier-seed match measured best;
  *      the multi-factor difficulty scorer is reported but experimental, awaiting a
  *      calibration from real outcome data, so it does not decide the tier);
@@ -92,6 +92,17 @@ const TIER_TO_PRICE: Record<Tier, "cheap" | "mid" | "premium"> = {
 const clamp01 = (x: number) => Math.min(Math.max(x, 0), 1);
 const cheaper = (a: ModelVector, b: ModelVector) =>
   b.pricePerMTokens < a.pricePerMTokens ? b : a;
+
+/** The mean of a set of vectors; cosine is scale-invariant, so no normalisation. */
+function centroid(vectors: number[][]): number[] | null {
+  const first = vectors[0];
+  if (!first) return null;
+  const sum = new Array<number>(first.length).fill(0);
+  for (const v of vectors) {
+    for (let i = 0; i < sum.length; i++) sum[i] = (sum[i] ?? 0) + (v[i] ?? 0);
+  }
+  return sum.map((x) => x / vectors.length);
+}
 
 function passesGates(m: ModelVector, gates: Gates): boolean {
   return (
@@ -222,11 +233,21 @@ export function createVectorRouter<TOutput = unknown>(
           ...tierFlat.map((s) => s.text),
         ];
         const vectors = texts.length ? await embed.embed(texts) : [];
-        const capBank: { label: Capability; vector: number[] }[] = [];
+        // Capability is matched by CENTROID (mean of a capability's seed vectors),
+        // so one outlier seed cannot swing the decision.
+        const grouped = new Map<Capability, number[][]>();
         capFlat.forEach((s, i) => {
           const vector = vectors[i];
-          if (vector) capBank.push({ label: s.label, vector });
+          if (!vector) return;
+          const arr = grouped.get(s.label) ?? [];
+          arr.push(vector);
+          grouped.set(s.label, arr);
         });
+        const capBank: { label: Capability; vector: number[] }[] = [];
+        for (const [label, vecs] of grouped) {
+          const c = centroid(vecs);
+          if (c) capBank.push({ label, vector: c });
+        }
         const tierBank: { label: Tier; vector: number[] }[] = [];
         tierFlat.forEach((s, i) => {
           const vector = vectors[capFlat.length + i];
