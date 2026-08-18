@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Capability } from "./catalog";
 import type { ModelVector } from "./modelVector";
 import type { EmbeddingProvider } from "./types";
+import { defaultVectorCatalog } from "./vectorCatalog";
 import {
   createVectorRouter,
   matchModel,
@@ -198,5 +199,10 @@ describe("createVectorRouter", () => {
     expect(() =>
       makeRouter({ handlers: { "cheap-coder": async () => "x" } }),
     ).toThrow(/handler/);
+  });
+
+  it("works zero-config, routing over the built-in catalog", async () => {
+    const d = await createVectorRouter({ embed: testEmbed }).route("hello");
+    expect(defaultVectorCatalog.some((m) => m.id === d.model)).toBe(true);
   });
 });

@@ -21,6 +21,7 @@ import { type DifficultyOptions, scoreDifficulty } from "./difficulty";
 import { fitness, type ModelVector } from "./modelVector";
 import { cosineSimilarity } from "./similarity";
 import type { EmbeddingProvider, RouteInput } from "./types";
+import { defaultVectorCatalog } from "./vectorCatalog";
 
 /** Hard requirements a request places on a model. */
 export interface Gates {
@@ -54,8 +55,8 @@ export type VectorHandler<TOutput = unknown> = (
 export interface VectorRouterConfig<TOutput = unknown> {
   /** Backend that turns text into vectors. */
   embed: EmbeddingProvider;
-  /** The model catalog, each entry a capability vector. */
-  catalog: ModelVector[];
+  /** The model catalog, each entry a capability vector. Defaults to the built-in catalog. */
+  catalog?: ModelVector[];
   /** Override the capability seed sets. */
   capabilitySeeds?: Record<Capability, string[]>;
   /** Model id to fall open to. Defaults to the priciest chat model (strongest). */
@@ -153,7 +154,7 @@ export function createVectorRouter<TOutput = unknown>(
 ) {
   const {
     embed,
-    catalog,
+    catalog = defaultVectorCatalog,
     capabilitySeeds = defaultCapabilitySeeds,
     difficulty: difficultyOptions,
     handlers,
