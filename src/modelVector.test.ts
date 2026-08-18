@@ -46,11 +46,27 @@ describe("fitness", () => {
     expect(fitness(model, "code")).toBeCloseTo(1);
   });
 
-  it("renormalises over present dims instead of penalising a missing one", () => {
-    // Only code_agentic (weight 0.6) is present, at 0.5, so fitness is 0.5, not
-    // 0.5 * 0.6 = 0.3.
-    const model: ModelVector = { ...base, scores: { code_agentic: 0.5 } };
-    expect(fitness(model, "code")).toBeCloseTo(0.5);
+  it("fills a missing axis with the neutral prior, not renormalisation", () => {
+    // Only code_agentic (weight 0.6) is present at 1.0; the missing axes get the 0.5
+    // prior, so fitness = 0.6*1 + 0.4*0.5 = 0.8, NOT 1.0. One high axis cannot inflate.
+    const model: ModelVector = { ...base, scores: { code_agentic: 1 } };
+    expect(fitness(model, "code")).toBeCloseTo(0.8);
+  });
+
+  it("does not let a sparse high-axis model beat a fuller lower one", () => {
+    const sparse: ModelVector = { ...base, scores: { code_agentic: 1 } };
+    const full: ModelVector = {
+      ...base,
+      scores: {
+        code_agentic: 0.85,
+        code_snippet: 0.85,
+        instruction_following: 0.85,
+        tool_use: 0.85,
+      },
+    };
+    expect(fitness(full, "code") ?? 0).toBeGreaterThan(
+      fitness(sparse, "code") ?? 0,
+    );
   });
 
   it("returns null when no relevant score is available", () => {

@@ -97,10 +97,19 @@ export const capabilityRelevance: Record<
 };
 
 /**
- * A model's fitness for a capability: the relevance-weighted average of the scores
- * that matter, renormalised over the ones actually present. Returns null when the
- * model has no relevant score at all, so the router can fall back deterministically
- * instead of trusting a fabricated zero.
+ * A neutral prior for an unmeasured axis: "assume average". Filling a data gap with
+ * this instead of renormalising it away means a model with one high measured axis is
+ * NOT inflated over a fuller-but-lower profile, and a model with no data is not
+ * punished as if it scored zero.
+ */
+const NEUTRAL_PRIOR = 0.5;
+
+/**
+ * A model's fitness for a capability: the relevance-weighted average of the axes
+ * that matter, where an unmeasured axis is filled with {@link NEUTRAL_PRIOR} rather
+ * than renormalised away (which would let a single high axis inflate a sparse model).
+ * Returns null only when NO relevant axis has a score, so the router can fall back to
+ * price-tier routing instead of trusting a fabricated value.
  */
 export function fitness(
   model: ModelVector,
@@ -108,13 +117,15 @@ export function fitness(
 ): number | null {
   const weights = capabilityRelevance[capability];
   let sum = 0;
-  let weightUsed = 0;
+  let anyMeasured = false;
   for (const [dim, weight] of Object.entries(weights)) {
     const score = model.scores[dim as CapabilityScore];
     if (typeof score === "number") {
       sum += weight * score;
-      weightUsed += weight;
+      anyMeasured = true;
+    } else {
+      sum += weight * NEUTRAL_PRIOR;
     }
   }
-  return weightUsed === 0 ? null : sum / weightUsed;
+  return anyMeasured ? sum : null;
 }
