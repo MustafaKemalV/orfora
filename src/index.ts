@@ -39,6 +39,8 @@ export type {
 export { evaluate, evaluateCatalog } from "./evaluate";
 export type { Modality } from "./modality";
 export { normalizeModality } from "./modality";
+export type { CapabilityScore, ModelClass, ModelVector } from "./modelVector";
+export { capabilityRelevance, fitness } from "./modelVector";
 export { createRouter } from "./router";
 export { defaultSeeds } from "./seeds";
 export type {
