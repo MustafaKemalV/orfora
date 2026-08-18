@@ -223,15 +223,22 @@ Complex-recall is the number that matters most. orfora is built never to trade
 quality for cost, and on this set it never did. Reproduce it with `npm run eval`
 using your own OpenAI-compatible key.
 
-For the multi-model routers, on a 40-example set labelled by capability AND tier
-(also with `text-embedding-3-small`):
+For the vector router, on a 40-example main set plus a 19-example adversarial set
+(ambiguous, out-of-distribution, non-English, multi-intent), with centroid capability
+matching and out-of-distribution abstention:
 
-- **90% capability accuracy**: the task type (code, reasoning, writing, live search,
-  general) is picked correctly nine times in ten.
+- **97.5% capability accuracy** on the main set, **78.9%** on the adversarial set: the
+  request's task type (code, reasoning, writing, live search, general) is picked
+  correctly, and unclear or out-of-distribution inputs fall open to a general model
+  instead of a confident wrong specialist.
 - **55% tier accuracy**: which strength tier a request warrants is the harder, fuzzier
-  axis. A multi-factor difficulty scorer is included but kept experimental (it does
-  not decide the tier yet), pending a calibration from real routing outcomes rather
-  than hand-tuning.
+  axis. A multi-factor difficulty scorer is included but kept experimental (it does not
+  decide the tier yet), pending a calibration from real routing outcomes, not hand-tuning.
+- **Cost and quality, the right-fit lens** (not a cheap-ratio): routing each request to
+  its best-fit model gives about **120% of the quality of always using the flagship, at
+  roughly 5% of its cost**, because a task-tuned model often beats a pricey generalist on
+  its own task while costing far less. Quality here is a benchmark-fitness proxy, not
+  measured answer quality.
 
 Reproduce with `npm run eval:catalog` or `npm run eval:vector`.
 
