@@ -71,6 +71,12 @@ export interface VectorRouterConfig<TOutput = unknown> {
   thresholds?: Partial<Record<Tier, number>>;
   /** Difficulty scorer overrides (weights / bands). */
   difficulty?: DifficultyOptions;
+  /**
+   * Abstain to general_qa when the request is out-of-distribution (far from every
+   * capability) or ambiguous (the top two capabilities too close), rather than
+   * routing to a wrong specialist. Set to false to disable.
+   */
+  abstain?: { minCosine?: number; minMargin?: number } | false;
   /** Optional handlers to call the chosen model via run(). */
   handlers?: Record<string, VectorHandler<TOutput>>;
 }
@@ -177,6 +183,11 @@ export function createVectorRouter<TOutput = unknown>(
     difficulty: difficultyOptions,
     handlers,
   } = config;
+
+  const abstain =
+    config.abstain === false
+      ? null
+      : { minCosine: 0.15, minMargin: 0.03, ...config.abstain };
 
   if (typeof embed?.embed !== "function") {
     throw new Error("orfora: config.embed (an EmbeddingProvider) is required.");
@@ -286,14 +297,28 @@ export function createVectorRouter<TOutput = unknown>(
 
       let capability: Capability = "general_qa";
       let bestCosine = Number.NEGATIVE_INFINITY;
+      let secondCosine = Number.NEGATIVE_INFINITY;
       for (const seed of capBank) {
         const score = cosineSimilarity(query, seed.vector);
         if (score > bestCosine) {
+          secondCosine = bestCosine;
           bestCosine = score;
           capability = seed.label;
+        } else if (score > secondCosine) {
+          secondCosine = score;
         }
       }
       const seedDistance = clamp01(1 - bestCosine);
+
+      // Abstain to general_qa on out-of-distribution (far from every capability) or
+      // ambiguous (top two too close) inputs, rather than picking a wrong specialist.
+      let abstainReason: string | null = null;
+      if (abstain && capability !== "general_qa") {
+        if (bestCosine < abstain.minCosine) abstainReason = "abstain:ood";
+        else if (bestCosine - secondCosine < abstain.minMargin)
+          abstainReason = "abstain:margin";
+        if (abstainReason) capability = "general_qa";
+      }
 
       // Tier comes from the nearest tier seed, the mechanism that measured best.
       let tier: Tier = "premium";
@@ -333,7 +358,7 @@ export function createVectorRouter<TOutput = unknown>(
           model: fallbackModel.id,
           fitness: null,
           fallback: true,
-          reason: match.reason,
+          reason: abstainReason ?? match.reason,
         };
       }
       return {
@@ -341,7 +366,7 @@ export function createVectorRouter<TOutput = unknown>(
         model: match.model.id,
         fitness: match.fitness,
         fallback: false,
-        reason: match.reason,
+        reason: abstainReason ?? match.reason,
       };
     } catch {
       return failOpen("error");

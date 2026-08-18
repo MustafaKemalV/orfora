@@ -205,4 +205,17 @@ describe("createVectorRouter", () => {
     const d = await createVectorRouter({ embed: testEmbed }).route("hello");
     expect(defaultVectorCatalog.some((m) => m.id === d.model)).toBe(true);
   });
+
+  it("abstains to general_qa on an out-of-distribution request", async () => {
+    // An unknown prompt embeds far from every capability, so it should fall open to
+    // general_qa rather than a confident wrong specialist.
+    const d = await makeRouter().route("OOD_UNKNOWN_INPUT");
+    expect(d.capability).toBe("general_qa");
+    expect(d.reason).toContain("abstain");
+  });
+
+  it("does not abstain when abstain is disabled", async () => {
+    const d = await makeRouter({ abstain: false }).route("OOD_UNKNOWN_INPUT");
+    expect(d.reason).not.toContain("abstain");
+  });
 });
