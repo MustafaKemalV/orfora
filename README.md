@@ -97,6 +97,34 @@ const answer = await router.run("What is the USD to EUR rate today?");
 The catalog, the grid, and every seed set are just defaults. Pass your own `grid`,
 `capabilitySeeds`, or `tierSeeds` to fit your traffic.
 
+## Route by real benchmarks: the vector router
+
+`createVectorRouter` goes one step further: instead of a hand-mapped grid, each model
+carries a capability VECTOR scored from real published benchmarks (SWE-bench, GPQA,
+IFEval, BFCL, LMArena Elo, and more). A request picks its capability by meaning, and
+the router returns the CHEAPEST model whose relevance-weighted fitness for that
+capability clears the bar, subject to hard gates (an image needs a vision-capable
+model, live search needs a web-search model).
+
+```ts
+import { createVectorRouter } from "orfora";
+import { openrouterEmbedder } from "orfora/openrouter";
+
+const router = createVectorRouter({
+  embed: openrouterEmbedder({ apiKey: process.env.OPENROUTER_API_KEY }),
+});
+
+const decision = await router.route("Fix the failing test in this module.");
+// decision.capability === "code", decision.model = the cheapest model strong
+// enough at coding, decision.fitness = its score for the request
+```
+
+It ships with a catalog of current models whose scores are carried forward from each
+family's latest MEASURED version (capability persists across versions) and refreshed
+as new benchmarks land; `profileFrom` names the source on every model, so a number is
+never mistaken for the current version's own. A missing score is left out, and the
+router degrades gracefully to price-tier routing over the gap.
+
 ## Custom routes
 
 If you want full control, `createRouter` is the primitive underneath both wrappers.
@@ -194,6 +222,18 @@ the seeds, embedded with `text-embedding-3-small`), orfora scored:
 Complex-recall is the number that matters most. orfora is built never to trade
 quality for cost, and on this set it never did. Reproduce it with `npm run eval`
 using your own OpenAI-compatible key.
+
+For the multi-model routers, on a 40-example set labelled by capability AND tier
+(also with `text-embedding-3-small`):
+
+- **90% capability accuracy**: the task type (code, reasoning, writing, live search,
+  general) is picked correctly nine times in ten.
+- **55% tier accuracy**: which strength tier a request warrants is the harder, fuzzier
+  axis. A multi-factor difficulty scorer is included but kept experimental (it does
+  not decide the tier yet), pending a calibration from real routing outcomes rather
+  than hand-tuning.
+
+Reproduce with `npm run eval:catalog` or `npm run eval:vector`.
 
 ## Why orfora (vs LLM gateways)
 
