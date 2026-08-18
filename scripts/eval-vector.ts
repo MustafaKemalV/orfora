@@ -1,12 +1,19 @@
+import { adversarialDataset } from "../eval/adversarialDataset";
 import { catalogDataset } from "../eval/catalogDataset";
-import { evaluateCatalog } from "../src/evaluate";
-import { createVectorRouter } from "../src/index";
+import type { Capability } from "../src/catalog";
+import type { CatalogLabeledExample } from "../src/evaluate";
+import {
+  createVectorRouter,
+  defaultVectorCatalog,
+  fitness,
+} from "../src/index";
 import { openaiEmbedder } from "../src/openai";
 
 /**
- * Evaluates the model-as-vector router (capability + tier) against real embeddings,
- * over the same labelled set as eval:catalog, so the new tier accuracy is directly
- * comparable to the old seed-tier number. Requires OPENAI_API_KEY (see .env.example).
+ * Evaluates the model-as-vector router in one pass: capability + tier accuracy AND
+ * the cost-vs-quality trade-off. Cost/quality is the RIGHT-FIT lens (does orfora
+ * keep the quality of always using the flagship, at lower cost?), not a cheap-ratio.
+ * Requires OPENAI_API_KEY (see .env.example).
  */
 async function main() {
   try {
@@ -14,7 +21,6 @@ async function main() {
   } catch {
     // no .env file; use the ambient environment
   }
-
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.error(
@@ -32,30 +38,58 @@ async function main() {
     }),
   });
 
-  // evaluateCatalog reads decision.target; the vector router names it capability.
-  const adapted = {
-    route: async (input: string) => {
-      const d = await router.route(input);
-      return { target: d.capability, tier: d.tier };
-    },
-  };
-
-  const report = await evaluateCatalog(adapted, catalogDataset);
+  const byId = new Map(defaultVectorCatalog.map((m) => [m.id, m]));
+  // The "always use one big model" baseline: the priciest chat model.
+  const flagship = defaultVectorCatalog
+    .filter((m) => m.modelClass === "chat")
+    .reduce((a, b) => (b.pricePerMTokens > a.pricePerMTokens ? b : a));
   const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+  const usd = (n: number) => `$${n.toFixed(2)}`;
 
-  console.log(`\norfora vector-router evaluation (${report.total} examples)\n`);
-  console.log(`  capability accuracy: ${pct(report.capabilityAccuracy)}`);
-  console.log(`  tier accuracy:       ${pct(report.tierAccuracy)}`);
-  console.log(`  both correct:        ${pct(report.bothAccuracy)}\n`);
+  async function evalSet(name: string, data: CatalogLabeledExample[]) {
+    let capHit = 0;
+    let tierHit = 0;
+    let priceSum = 0;
+    let chosenFitSum = 0;
+    let chosenFitN = 0;
+    let flagFitSum = 0;
+    let flagFitN = 0;
 
-  console.log("  capability recall:");
-  for (const [cap, r] of Object.entries(report.capabilityRecall)) {
-    console.log(`    ${cap.padEnd(16)} ${pct(r)}`);
+    for (const ex of data) {
+      const d = await router.route(ex.input);
+      if (d.capability === ex.capability) capHit++;
+      if (d.tier === ex.tier) tierHit++;
+      priceSum += byId.get(d.model)?.pricePerMTokens ?? 0;
+      if (typeof d.fitness === "number") {
+        chosenFitSum += d.fitness;
+        chosenFitN++;
+      }
+      const ff = fitness(flagship, ex.capability as Capability);
+      if (typeof ff === "number") {
+        flagFitSum += ff;
+        flagFitN++;
+      }
+    }
+
+    const n = data.length || 1;
+    const avgPrice = priceSum / n;
+    const chosenFit = chosenFitN ? chosenFitSum / chosenFitN : 0;
+    const flagFit = flagFitN ? flagFitSum / flagFitN : 0;
+
+    console.log(`\n${name} (${data.length} examples)`);
+    console.log(`  capability accuracy: ${pct(capHit / n)}`);
+    console.log(`  tier accuracy:       ${pct(tierHit / n)}`);
+    console.log(
+      `  cost:    ${usd(avgPrice)}/M chosen vs ${usd(flagship.pricePerMTokens)}/M always-flagship  (${pct(avgPrice / flagship.pricePerMTokens)} of flagship cost)`,
+    );
+    console.log(
+      `  quality: fitness ${chosenFit.toFixed(3)} chosen vs ${flagFit.toFixed(3)} flagship  (${pct(flagFit ? chosenFit / flagFit : 0)} of flagship quality)`,
+    );
   }
-  console.log("\n  tier recall:");
-  for (const [tier, r] of Object.entries(report.tierRecall)) {
-    console.log(`    ${tier.padEnd(16)} ${pct(r)}`);
-  }
+
+  console.log(`\norfora vector-router evaluation  (flagship = ${flagship.id})`);
+  await evalSet("main", catalogDataset);
+  await evalSet("adversarial", adversarialDataset);
   console.log();
 }
 
