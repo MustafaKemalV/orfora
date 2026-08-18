@@ -50,6 +50,7 @@
     "typecheck": "tsc --noEmit",
     "eval": "tsx scripts/eval.ts",
     "eval:catalog": "tsx scripts/eval-catalog.ts",
+    "eval:vector": "tsx scripts/eval-vector.ts",
     "test:integration": "ORFORA_INTEGRATION=1 vitest run",
     "lint": "biome check .",
     "format": "biome format --write ."

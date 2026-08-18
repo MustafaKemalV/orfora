@@ -2,9 +2,10 @@
  * The vector router: model-as-vector routing.
  *
  * Per request it embeds the prompt ONCE, then:
- *   1. finds the nearest capability seed -> the request's capability, and uses the
- *      seed distance as the epistemic (out-of-distribution) difficulty signal;
- *   2. scores difficulty (LLM-free) -> a tier;
+ *   1. finds the nearest capability seed -> the request's capability;
+ *   2. finds the nearest tier seed -> the tier (the tier-seed match measured best;
+ *      the multi-factor difficulty scorer is reported but experimental, awaiting a
+ *      calibration from real outcome data, so it does not decide the tier);
  *   3. matches against the model catalog: apply hard gates, then among the
  *      survivors pick the CHEAPEST model whose relevance-weighted fitness for the
  *      capability clears the tier's bar. If no model has scores yet, it degrades
@@ -16,7 +17,10 @@
  */
 
 import type { Capability, Tier } from "./catalog";
-import { capabilitySeeds as defaultCapabilitySeeds } from "./catalogSeeds";
+import {
+  capabilitySeeds as defaultCapabilitySeeds,
+  tierSeeds as defaultTierSeeds,
+} from "./catalogSeeds";
 import { type DifficultyOptions, scoreDifficulty } from "./difficulty";
 import { fitness, type ModelVector } from "./modelVector";
 import { cosineSimilarity } from "./similarity";
@@ -59,6 +63,8 @@ export interface VectorRouterConfig<TOutput = unknown> {
   catalog?: ModelVector[];
   /** Override the capability seed sets. */
   capabilitySeeds?: Record<Capability, string[]>;
+  /** Override the tier seed sets (cheap / mid / premium). */
+  tierSeeds?: { cheap: string[]; mid: string[]; premium: string[] };
   /** Model id to fall open to. Defaults to the priciest chat model (strongest). */
   fallback?: string;
   /** Minimum fitness to accept per tier. */
@@ -156,6 +162,7 @@ export function createVectorRouter<TOutput = unknown>(
     embed,
     catalog = defaultVectorCatalog,
     capabilitySeeds = defaultCapabilitySeeds,
+    tierSeeds = defaultTierSeeds,
     difficulty: difficultyOptions,
     handlers,
   } = config;
@@ -194,23 +201,38 @@ export function createVectorRouter<TOutput = unknown>(
     }
   }
 
-  let bank: Promise<{ label: Capability; vector: number[] }[]> | null = null;
+  let bank: Promise<{
+    capability: { label: Capability; vector: number[] }[];
+    tier: { label: Tier; vector: number[] }[];
+  }> | null = null;
   function loadBank() {
     if (!bank) {
       bank = (async () => {
-        const flat: { label: Capability; text: string }[] = [];
+        const capFlat: { label: Capability; text: string }[] = [];
         for (const [capability, seeds] of Object.entries(capabilitySeeds)) {
           for (const text of seeds)
-            flat.push({ label: capability as Capability, text });
+            capFlat.push({ label: capability as Capability, text });
         }
-        if (flat.length === 0) return [];
-        const vectors = await embed.embed(flat.map((s) => s.text));
-        const out: { label: Capability; vector: number[] }[] = [];
-        flat.forEach((s, i) => {
+        const tierFlat: { label: Tier; text: string }[] = [];
+        for (const t of ["cheap", "mid", "premium"] as const) {
+          for (const text of tierSeeds[t]) tierFlat.push({ label: t, text });
+        }
+        const texts = [
+          ...capFlat.map((s) => s.text),
+          ...tierFlat.map((s) => s.text),
+        ];
+        const vectors = texts.length ? await embed.embed(texts) : [];
+        const capBank: { label: Capability; vector: number[] }[] = [];
+        capFlat.forEach((s, i) => {
           const vector = vectors[i];
-          if (vector) out.push({ label: s.label, vector });
+          if (vector) capBank.push({ label: s.label, vector });
         });
-        return out;
+        const tierBank: { label: Tier; vector: number[] }[] = [];
+        tierFlat.forEach((s, i) => {
+          const vector = vectors[capFlat.length + i];
+          if (vector) tierBank.push({ label: s.label, vector });
+        });
+        return { capability: capBank, tier: tierBank };
       })();
     }
     return bank;
@@ -234,8 +256,8 @@ export function createVectorRouter<TOutput = unknown>(
     const request: RouteInput =
       typeof input === "string" ? { prompt: input } : input;
     try {
-      const seeds = await loadBank();
-      if (seeds.length === 0) return failOpen("no-seeds");
+      const { capability: capBank, tier: tierBank } = await loadBank();
+      if (capBank.length === 0) return failOpen("no-seeds");
 
       const embedded = await embed.embed([request.prompt]);
       const query = embedded[0];
@@ -243,7 +265,7 @@ export function createVectorRouter<TOutput = unknown>(
 
       let capability: Capability = "general_qa";
       let bestCosine = Number.NEGATIVE_INFINITY;
-      for (const seed of seeds) {
+      for (const seed of capBank) {
         const score = cosineSimilarity(query, seed.vector);
         if (score > bestCosine) {
           bestCosine = score;
@@ -251,6 +273,20 @@ export function createVectorRouter<TOutput = unknown>(
         }
       }
       const seedDistance = clamp01(1 - bestCosine);
+
+      // Tier comes from the nearest tier seed, the mechanism that measured best.
+      let tier: Tier = "premium";
+      let bestTierCosine = Number.NEGATIVE_INFINITY;
+      for (const seed of tierBank) {
+        const score = cosineSimilarity(query, seed.vector);
+        if (score > bestTierCosine) {
+          bestTierCosine = score;
+          tier = seed.label;
+        }
+      }
+
+      // Difficulty is reported for transparency (epistemic / aleatoric); it does not
+      // decide the tier, pending a calibration from real outcome data.
       const diff = scoreDifficulty(request.prompt, {
         ...difficultyOptions,
         seedDistance,
@@ -262,16 +298,10 @@ export function createVectorRouter<TOutput = unknown>(
         minContext: Math.ceil(request.prompt.length / 3),
       };
 
-      const match = matchModel(
-        catalog,
-        capability,
-        diff.tier,
-        gates,
-        thresholds,
-      );
+      const match = matchModel(catalog, capability, tier, gates, thresholds);
       const base = {
         capability,
-        tier: diff.tier,
+        tier,
         difficulty: diff.difficulty,
         epistemic: diff.epistemic,
         aleatoric: diff.aleatoric,
