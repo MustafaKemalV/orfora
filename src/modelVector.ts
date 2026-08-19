@@ -43,7 +43,11 @@ export interface ModelVector {
 
   // Cost side of the routing objective.
   priceTier: "cheap" | "mid" | "premium";
+  /** Headline cost used for routing; mirrors {@link priceOutput}. */
   pricePerMTokens: number;
+  /** Split token prices per million tokens, when known. */
+  priceInput?: number;
+  priceOutput?: number;
 
   // Hard gates: a request either needs these or it does not.
   context: number;

@@ -26,10 +26,15 @@ describe("defaultVectorCatalog", () => {
     }
   });
 
-  it("flags the web-search specialists and only them", () => {
-    for (const m of defaultVectorCatalog) {
-      expect(m.hasWebSearch).toBe(m.family === "Perplexity");
-    }
+  it("flags the Sonar live-search specialists as web-capable", () => {
+    // Many current models now have native web search, so it is no longer a Sonar
+    // exclusive; but every Sonar model must be web-capable, and the gate is boolean.
+    const sonar = defaultVectorCatalog.filter((m) => m.family === "Sonar");
+    expect(sonar.length).toBeGreaterThan(0);
+    expect(sonar.every((m) => m.hasWebSearch)).toBe(true);
+    expect(
+      defaultVectorCatalog.every((m) => typeof m.hasWebSearch === "boolean"),
+    ).toBe(true);
   });
 
   it("documents every model's profile source for honesty", () => {

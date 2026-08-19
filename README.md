@@ -119,11 +119,14 @@ const decision = await router.route("Fix the failing test in this module.");
 // enough at coding, decision.fitness = its score for the request
 ```
 
-It ships with a catalog of current models whose scores are carried forward from each
-family's latest MEASURED version (capability persists across versions) and refreshed
-as new benchmarks land; `profileFrom` names the source on every model, so a number is
-never mistaken for the current version's own. A missing score is left out, and the
-router degrades gracefully to price-tier routing over the gap.
+It ships with a catalog of ~40 current (August 2026) models scored from LIVE, cited
+benchmarks, one canonical benchmark per capability axis normalised to [0,1]. Because
+vendors report different suites (SWE-bench Verified vs Pro, Terminal-Bench 2.0/2.1/3.0),
+a score is a relative fitness proxy, not an absolute truth; `profileFrom` names the real
+benchmark and source on every model. A missing score is left out (never guessed) and the
+router degrades gracefully to a neutral prior and price-tier routing over the gap. If a
+current model has no number of its own, one is carried forward from its family's latest
+measured version, recorded in `profileFrom`.
 
 ## Custom routes
 
@@ -235,10 +238,10 @@ matching and out-of-distribution abstention:
   axis. A multi-factor difficulty scorer is included but kept experimental (it does not
   decide the tier yet), pending a calibration from real routing outcomes, not hand-tuning.
 - **Cost and quality, the right-fit lens** (not a cheap-ratio): routing each request to
-  its best-fit model gives about **120% of the quality of always using the flagship, at
-  roughly 5% of its cost**, because a task-tuned model often beats a pricey generalist on
-  its own task while costing far less. Quality here is a benchmark-fitness proxy, not
-  measured answer quality.
+  its best-fit model keeps about **96-98% of the quality of always using the top flagship,
+  at roughly 6-8% of its cost**, because a task-tuned model often matches a pricey
+  generalist on its own task while costing far less. Quality here is a benchmark-fitness
+  proxy, not measured answer quality.
 
 Reproduce with `npm run eval:catalog` or `npm run eval:vector`.
 

@@ -39,9 +39,10 @@ async function main() {
   });
 
   const byId = new Map(defaultVectorCatalog.map((m) => [m.id, m]));
-  // The "always use one big model" baseline: the priciest chat model.
+  // The "always use the top flagship" baseline: the priciest WELL-CHARACTERISED
+  // model, so a niche model with little benchmark data cannot stand in for it.
   const flagship = defaultVectorCatalog
-    .filter((m) => m.modelClass === "chat")
+    .filter((m) => m.modelClass === "chat" && Object.keys(m.scores).length >= 3)
     .reduce((a, b) => (b.pricePerMTokens > a.pricePerMTokens ? b : a));
   const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
   const usd = (n: number) => `$${n.toFixed(2)}`;
