@@ -1,59 +1,340 @@
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, -apple-system, sans-serif;
+  --bg: #02040a;
+  --cyan: #6ef3ff;
+  --cyan-dim: rgba(110, 243, 255, 0.35);
+  --blue: #2aa5ff;
+  --amber: #ffa83a;
+  --ink: #bfe9ff;
+  --ink-dim: #5f88a3;
+  --line: rgba(110, 243, 255, 0.12);
+  --panel: rgba(6, 16, 26, 0.72);
+  --grid: rgba(110, 243, 255, 0.16);
+  --dot: rgba(110, 243, 255, 0.5);
+  font-family:
+    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: grid;
-  place-items: center;
   min-height: 100vh;
+  background: radial-gradient(120% 90% at 50% -10%, #06121f 0%, var(--bg) 60%);
+  color: var(--ink);
+  overflow-x: hidden;
+  letter-spacing: 0.04em;
 }
 
-main {
-  width: min(640px, 92vw);
-  padding: 2rem 0;
+/* The grid world: a flat square lattice, the Tron floor seen head-on. Faint cyan
+   lines, brightening toward the centre where the router lives. It stays STILL, so
+   the only motion on the grid is the energy converging on ORFORA. */
+.grid-floor {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size:
+    46px 46px,
+    46px 46px;
+  background-position: 0 0;
+  mask-image: radial-gradient(135% 105% at 50% 6%, #000 52%, transparent 100%);
 }
 
-h1 {
-  margin: 0 0 0.25rem;
+/* Neon circuit traces: energy branching in from every edge and converging on the
+   ORFORA mark. Like dye injected into veins and spreading through the body, but
+   reversed, coming from all around and meeting at one point. */
+.circuit {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+/* No per-path drop-shadow: a blur filter on a full-viewport path is re-rasterised
+   every frame and strobes the whole page when the main thread is busy. A bright
+   stroke on the near-black grid reads as neon on its own, cheaply. */
+.circuit path {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: converge 2.8s linear infinite;
+}
+@keyframes converge {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.85;
+  }
+  86% {
+    opacity: 0.85;
+  }
+  100% {
+    stroke-dashoffset: var(--travel);
+    opacity: 0;
+  }
+}
+.circuit .conv-dot {
+  fill: #eafcff;
+  filter: drop-shadow(0 0 9px var(--cyan));
+  animation: convdot 2.4s ease-in-out infinite;
+}
+@keyframes convdot {
+  0%,
+  100% {
+    r: 2.5px;
+    opacity: 0.55;
+  }
+  50% {
+    r: 5px;
+    opacity: 1;
+  }
 }
 
-p {
-  color: #6b7280;
-  line-height: 1.5;
+.beams {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.beam-line {
+  stroke: var(--cyan);
+  stroke-width: 2;
+  stroke-dasharray: 7 9;
+  filter: drop-shadow(0 0 7px var(--cyan));
+  animation: flow 0.55s linear infinite;
+}
+@keyframes flow {
+  to {
+    stroke-dashoffset: -32;
+  }
 }
 
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.75rem;
+.masthead,
+.console,
+.hud,
+.board {
+  position: relative;
+  z-index: 2;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.masthead {
+  text-align: center;
+  padding-top: 44px;
+}
+.masthead h1 {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  color: #eafcff;
+  text-shadow:
+    0 0 12px var(--cyan),
+    0 0 40px var(--cyan-dim);
+}
+.tagline {
+  margin: 8px 0 0;
+  color: var(--ink-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.console {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: stretch;
+}
+#prompt {
+  grid-column: 1 / 2;
+  resize: vertical;
+  background: var(--panel);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 4px;
+  color: var(--ink);
+  padding: 14px 16px;
   font: inherit;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
+  font-size: 15px;
+  box-shadow: inset 0 0 24px rgba(110, 243, 255, 0.06);
 }
-
-button {
-  margin-top: 0.75rem;
-  padding: 0.6rem 1.2rem;
+#prompt:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow:
+    0 0 16px var(--cyan-dim),
+    inset 0 0 24px rgba(110, 243, 255, 0.1);
+}
+#run {
+  grid-column: 2 / 3;
+  padding: 0 26px;
+  background: transparent;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  border-radius: 4px;
   font: inherit;
-  border: 0;
-  border-radius: 8px;
-  background: #111827;
-  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   cursor: pointer;
+  text-shadow: 0 0 8px var(--cyan-dim);
+  box-shadow:
+    0 0 14px var(--cyan-dim),
+    inset 0 0 14px rgba(110, 243, 255, 0.08);
+  transition: all 0.15s ease;
 }
-
-button:disabled {
+#run:hover:not(:disabled) {
+  background: rgba(110, 243, 255, 0.12);
+  box-shadow:
+    0 0 26px var(--cyan-dim),
+    inset 0 0 20px rgba(110, 243, 255, 0.14);
+}
+#run:disabled {
   opacity: 0.5;
-  cursor: default;
+  cursor: progress;
 }
 
-pre {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(127, 127, 127, 0.12);
-  border-radius: 8px;
-  white-space: pre-wrap;
-  min-height: 3rem;
+.chips {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.chip {
+  background: rgba(110, 243, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip:hover {
+  color: var(--cyan);
+  border-color: var(--cyan-dim);
+}
+.status {
+  grid-column: 1 / -1;
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  min-height: 16px;
+}
+
+.hud {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+.hud-cell {
+  background: var(--panel);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 4px;
+  padding: 10px 12px;
+  box-shadow: 0 0 18px rgba(110, 243, 255, 0.05);
+}
+.hud-cell.wide {
+  grid-column: 1 / -1;
+}
+.hud-cell span {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-dim);
+  letter-spacing: 0.2em;
+}
+.hud-cell b {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan-dim);
+  word-break: break-word;
+}
+
+.board {
+  margin: 26px auto 60px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.node {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: 4px;
+  padding: 12px 14px;
+  opacity: 0.9;
+  transition: all 0.35s ease;
+}
+.node.tier-cheap {
+  border-left-color: var(--cyan);
+}
+.node.tier-mid {
+  border-left-color: var(--blue);
+}
+.node.tier-premium {
+  border-left-color: var(--amber);
+}
+.node-family {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-dim);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.node-id {
+  display: block;
+  margin: 3px 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+.node-meta {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+/* Dim the losers, ignite the winner. */
+.board.decided .node {
+  opacity: 0.28;
+  filter: saturate(0.5);
+}
+.board.decided .node.active {
+  opacity: 1;
+  filter: none;
+  border-color: var(--cyan);
+  border-left-color: var(--cyan);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 0 26px var(--cyan-dim),
+    inset 0 0 22px rgba(110, 243, 255, 0.12);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 22px var(--cyan-dim),
+      inset 0 0 18px rgba(110, 243, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 40px var(--cyan),
+      inset 0 0 26px rgba(110, 243, 255, 0.18);
+  }
 }
