@@ -73,7 +73,9 @@ function drawCircuit() {
   if (!mark) return;
   const r = mark.getBoundingClientRect();
   const tx = snap(r.left + r.width / 2);
-  const ty = snap(r.top + r.height / 2);
+  // Converge on a grid node just BELOW the ORFORA mark, so the meeting point is
+  // out in the open on the grid, not hidden behind the letters.
+  const ty = snap(r.bottom + 12);
   const W = window.innerWidth;
   const H = window.innerHeight;
   circuitEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -92,24 +94,31 @@ function drawCircuit() {
   }
 
   traces.forEach(({ sx, sy, floor }, idx) => {
-    const p = document.createElementNS(svgns, "path");
     let d: string;
     if (floor) {
-      // From the floor: rise along a column, then step across into the mark.
-      const midY = snap(ty + 90 + (idx % 3) * GRID);
+      // From the floor: rise along a column, then step across into the node.
+      const midY = snap(ty + 92 + (idx % 3) * GRID);
       d = `M ${sx} ${sy} V ${midY} H ${tx} V ${ty}`;
     } else {
       // From a side: in along a row to a bend column, up/down, then in.
       const midX = snap(sx + (tx - sx) * (0.4 + (idx % 3) * 0.08));
       d = `M ${sx} ${sy} H ${midX} V ${ty} H ${tx}`;
     }
-    p.setAttribute("d", d);
-    circuitEl.appendChild(p);
-    const len = p.getTotalLength();
-    p.style.strokeDasharray = `${SEG} ${len}`;
-    p.style.setProperty("--travel", `${-len}px`);
-    p.style.animationDelay = `${((idx % 6) * 0.34 + (idx % 2) * 0.17).toFixed(2)}s`;
-    p.style.animationDuration = `${(2.4 + (idx % 4) * 0.35).toFixed(2)}s`;
+    // Static line: shows the whole route running along the grid edges.
+    const base = document.createElementNS(svgns, "path");
+    base.setAttribute("d", d);
+    base.setAttribute("class", "trace-base");
+    circuitEl.appendChild(base);
+    // Pulse: a bright segment travelling along that exact line to the node.
+    const pulse = document.createElementNS(svgns, "path");
+    pulse.setAttribute("d", d);
+    pulse.setAttribute("class", "trace-pulse");
+    circuitEl.appendChild(pulse);
+    const len = pulse.getTotalLength();
+    pulse.style.strokeDasharray = `${SEG} ${len}`;
+    pulse.style.setProperty("--travel", `${-len}px`);
+    pulse.style.animationDelay = `${((idx % 6) * 0.34 + (idx % 2) * 0.17).toFixed(2)}s`;
+    pulse.style.animationDuration = `${(2.4 + (idx % 4) * 0.35).toFixed(2)}s`;
   });
 
   // The convergence point itself, pulsing where the traces all arrive.

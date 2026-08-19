@@ -55,13 +55,21 @@ body {
   z-index: 1;
   pointer-events: none;
 }
-/* No per-path drop-shadow: a blur filter on a full-viewport path is re-rasterised
-   every frame and strobes the whole page when the main thread is busy. A bright
-   stroke on the near-black grid reads as neon on its own, cheaply. */
-.circuit path {
+/* Two layers per trace, both filter-free so nothing re-rasterises per frame (a
+   blur filter on a full-viewport path strobes the page when the main thread is
+   busy). A faint static line shows the route running along the grid edges, and a
+   brighter pulse travels along that exact line to the convergence node. */
+.circuit .trace-base {
   fill: none;
   stroke: var(--cyan);
-  stroke-width: 1.6;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  opacity: 0.17;
+}
+.circuit .trace-pulse {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
   animation: converge 2.8s linear infinite;
