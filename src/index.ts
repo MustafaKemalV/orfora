@@ -44,10 +44,31 @@ export type {
   Routable,
 } from "./evaluate";
 export { evaluate, evaluateCatalog } from "./evaluate";
+export type {
+  GenerativeModality,
+  GenerativeModel,
+  OutputModality,
+  PriceUnit,
+  QualityTier,
+} from "./generativeCatalog";
+export {
+  defaultGenerativeCatalog,
+  QUALITY_ORDER,
+} from "./generativeCatalog";
 export type { Modality } from "./modality";
 export { normalizeModality } from "./modality";
 export type { CapabilityScore, ModelClass, ModelVector } from "./modelVector";
 export { capabilityRelevance, fitness } from "./modelVector";
+export type {
+  GenerativeDecision,
+  MultimodalDecision,
+  MultimodalRouterConfig,
+} from "./multimodalRouter";
+export {
+  createMultimodalRouter,
+  detectTags,
+  matchGenerative,
+} from "./multimodalRouter";
 export { createRouter } from "./router";
 export { defaultSeeds } from "./seeds";
 export type {
