@@ -128,6 +128,36 @@ router degrades gracefully to a neutral prior and price-tier routing over the ga
 current model has no number of its own, one is carried forward from its family's latest
 measured version, recorded in `profileFrom`.
 
+## Beyond text: the generative branch
+
+Not every request wants a text answer. `createMultimodalRouter` adds a second branch in
+front of the chat router: it detects a request's OUTPUT modality (text, image, video,
+speech, or music) from the same embedding, then either delegates text to the chat router
+above, untouched, or matches a best-fit GENERATIVE model.
+
+```ts
+import { createMultimodalRouter } from "orfora";
+import { openaiEmbedder } from "orfora/openai";
+
+const router = createMultimodalRouter({
+  embed: openaiEmbedder({ apiKey: process.env.OPENAI_API_KEY }),
+});
+
+await router.route("Refactor this module.");           // { modality: "text", ...chat decision }
+await router.route("Design a poster with bold text."); // { modality: "image", model: "ideogram/ideogram-v3", ... }
+await router.route("Read this paragraph aloud.");        // { modality: "speech", ... }
+```
+
+Output modality is orthogonal to the chat capability: it asks what the user wants
+PRODUCED, not what task the text is. Describing an image to generate is image output; an
+uploaded image would be an input gate instead. Detection reuses the capability seeds as
+the "text" anchor and biases to text, so a normal request is never mis-sent to an image
+generator. Within a modality the same right-fit rule applies: a specialty match
+(typography to Ideogram, dialogue video to Veo, voice-clone to ElevenLabs), then a
+draft-vs-final quality need, then the cheapest that fits. The generative catalog carries
+~30 current image / video / speech / music models with live-sourced pricing, coarse
+quality tiers, specialty tags, and a cited source per model.
+
 ## Custom routes
 
 If you want full control, `createRouter` is the primitive underneath both wrappers.

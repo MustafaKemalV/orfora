@@ -298,6 +298,31 @@ body {
 .node.tier-premium {
   border-left-color: var(--amber);
 }
+/* Generative nodes, coloured by output modality. */
+.node.mod-image {
+  border-left-color: var(--cyan);
+}
+.node.mod-video {
+  border-left-color: var(--blue);
+}
+.node.mod-speech {
+  border-left-color: var(--amber);
+}
+.node.mod-music {
+  border-left-color: #c86bff;
+}
+
+.board-label {
+  position: relative;
+  z-index: 2;
+  max-width: 1040px;
+  margin: 22px auto 8px;
+  padding: 0 20px;
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
 .node-family {
   display: block;
   font-size: 10px;

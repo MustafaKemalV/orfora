@@ -1,4 +1,8 @@
-import { createVectorRouter, defaultVectorCatalog } from "../../src/index";
+import {
+  createMultimodalRouter,
+  defaultGenerativeCatalog,
+  defaultVectorCatalog,
+} from "../../src/index";
 import type { EmbeddingProvider } from "../../src/types";
 
 // Run the embedding model in a Web Worker so its heavy forward pass never blocks
@@ -37,15 +41,23 @@ function workerEmbedder(): EmbeddingProvider {
   };
 }
 
-// A no-key router: the embedding model runs in a background worker, and the
-// built-in catalog is scored on real benchmarks.
-const router = createVectorRouter({ embed: workerEmbedder() });
+// A no-key multimodal router: the embedding model runs in a background worker, and
+// both the chat catalog and the generative catalog are scored on real benchmarks.
+const router = createMultimodalRouter({ embed: workerEmbedder() });
 const byId = new Map(defaultVectorCatalog.map((m) => [m.id, m]));
+const unitShort: Record<string, string> = {
+  image: "img",
+  second: "sec",
+  minute: "min",
+  song: "song",
+  "1k_chars": "1k",
+};
 
 const promptEl = document.querySelector("#prompt") as HTMLTextAreaElement;
 const runEl = document.querySelector("#run") as HTMLButtonElement;
 const statusEl = document.querySelector("#status") as HTMLElement;
 const boardEl = document.querySelector("#board") as HTMLElement;
+const genboardEl = document.querySelector("#genboard") as HTMLElement;
 const hudEl = document.querySelector("#hud") as HTMLElement;
 const beamsEl = document.querySelector("#beams") as unknown as SVGSVGElement;
 const chipsEl = document.querySelector("#chips") as HTMLElement;
@@ -145,6 +157,19 @@ for (const m of defaultVectorCatalog) {
   nodeById.set(m.id, node);
 }
 
+// Render the generative models as a second grid, coloured by output modality.
+const genNodeById = new Map<string, HTMLElement>();
+for (const m of defaultGenerativeCatalog) {
+  const node = document.createElement("div");
+  node.className = `node mod-${m.modality}`;
+  node.innerHTML =
+    `<span class="node-family">${m.family} // ${m.modality}</span>` +
+    `<span class="node-id">${shortId(m.id)}</span>` +
+    `<span class="node-meta">${m.qualityTier} // $${m.pricePerUnit}/${unitShort[m.priceUnit] ?? m.priceUnit}</span>`;
+  genboardEl.appendChild(node);
+  genNodeById.set(m.id, node);
+}
+
 const examples = [
   "Refactor this module to remove the duplication and explain the change.",
   "Prove that the square root of 2 is irrational.",
@@ -152,6 +177,11 @@ const examples = [
   "What is the current USD to EUR rate today?",
   "Summarise this paragraph in one sentence.",
   "Bu fonksiyondaki hatayi bul ve duzelt.",
+  "Generate an image of a neon city skyline at night.",
+  "Design a logo with bold typography for a coffee brand.",
+  "Read this paragraph aloud in a calm, warm voice.",
+  "Create a ten second video of rain on a window.",
+  "Compose a lo-fi instrumental track to study to.",
 ];
 for (const ex of examples) {
   const chip = document.createElement("button");
@@ -187,27 +217,48 @@ async function route() {
   statusEl.textContent = "ROUTING // COMPILING ON THE GRID...";
   try {
     const d = await router.route(prompt);
-    const model = byId.get(d.model);
 
     for (const node of nodeById.values()) node.classList.remove("active");
-    const chosen = nodeById.get(d.model);
+    for (const node of genNodeById.values()) node.classList.remove("active");
+    boardEl.classList.add("decided");
+    genboardEl.classList.add("decided");
+
+    hudEl.hidden = false;
+    set("#hud-mod", d.modality.toUpperCase());
+    set("#hud-model", shortId(d.model));
+    set("#hud-l3", d.modality === "text" ? "TIER" : "QUALITY");
+    set("#hud-l4", d.modality === "text" ? "FITNESS" : "MATCH");
+
+    let chosen: HTMLElement | undefined;
+    if (d.modality === "text") {
+      chosen = nodeById.get(d.model);
+      const model = byId.get(d.model);
+      set("#hud-tier", d.tier);
+      set(
+        "#hud-fit",
+        typeof d.fitness === "number" ? d.fitness.toFixed(2) : "n/a",
+      );
+      set("#hud-cost", model ? `$${model.pricePerMTokens}/M` : "-");
+      set(
+        "#hud-reason",
+        `${d.capability} // ${d.reason}${d.fallback ? " (fail-open)" : ""}`,
+      );
+    } else {
+      chosen = genNodeById.get(d.model);
+      set("#hud-tier", d.qualityTier);
+      set("#hud-fit", d.tags.length > 0 ? d.tags.join("+") : "-");
+      set(
+        "#hud-cost",
+        `$${d.pricePerUnit}/${unitShort[d.priceUnit] ?? d.priceUnit}`,
+      );
+      set("#hud-reason", d.reason);
+    }
+
     if (chosen) {
-      boardEl.classList.add("decided");
       chosen.classList.add("active");
       chosen.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
     drawBeam(chosen);
-
-    hudEl.hidden = false;
-    set("#hud-cap", d.capability);
-    set("#hud-tier", d.tier);
-    set("#hud-model", shortId(d.model));
-    set(
-      "#hud-fit",
-      typeof d.fitness === "number" ? d.fitness.toFixed(2) : "n/a",
-    );
-    set("#hud-cost", model ? `$${model.pricePerMTokens}/M` : "-");
-    set("#hud-reason", d.reason + (d.fallback ? " (fail-open)" : ""));
     statusEl.textContent = "DECISION LOCKED // best-fit model on the grid";
   } catch (error) {
     statusEl.textContent = `ERROR // ${(error as Error).message}`;
