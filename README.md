@@ -264,9 +264,13 @@ matching and out-of-distribution abstention:
   request's task type (code, reasoning, writing, live search, general) is picked
   correctly, and unclear or out-of-distribution inputs fall open to a general model
   instead of a confident wrong specialist.
-- **55% tier accuracy**: which strength tier a request warrants is the harder, fuzzier
-  axis. A multi-factor difficulty scorer is included but kept experimental (it does not
-  decide the tier yet), pending a calibration from real routing outcomes, not hand-tuning.
+- **Tier is the hard axis, so it is LEARNED from real outcomes, not hand-tuned.** Which
+  strength tier a request warrants is fuzzy, and seed-based tiering barely beats chance
+  on held-out data (35% on a balanced 3-tier set). An opt-in `tierPredictor`, a logistic
+  regression over prompt embeddings trained on RouterBench (each prompt labelled with the
+  cheapest tier that actually solved it), reaches **56% under 5-fold cross-validation** vs
+  35% for the seeds and 33% majority. It is embedding-space specific, so it ships off by
+  default and is enabled where the embedder matches (as in the playground).
 - **Cost and quality, the right-fit lens** (not a cheap-ratio): routing each request to
   its best-fit model keeps about **96-98% of the quality of always using the top flagship,
   at roughly 6-8% of its cost**, because a task-tuned model often matches a pricey

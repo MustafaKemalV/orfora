@@ -1,6 +1,7 @@
 import {
   createMultimodalRouter,
   defaultGenerativeCatalog,
+  defaultTierModel,
   defaultVectorCatalog,
 } from "../../src/index";
 import type { EmbeddingProvider } from "../../src/types";
@@ -43,7 +44,12 @@ function workerEmbedder(): EmbeddingProvider {
 
 // A no-key multimodal router: the embedding model runs in a background worker, and
 // both the chat catalog and the generative catalog are scored on real benchmarks.
-const router = createMultimodalRouter({ embed: workerEmbedder() });
+// The worker embeds with the same MiniLM the tier predictor was trained on, so the
+// learned tier (from real routing outcomes) is enabled here, not the seed fallback.
+const router = createMultimodalRouter({
+  embed: workerEmbedder(),
+  chat: { tierPredictor: defaultTierModel },
+});
 const byId = new Map(defaultVectorCatalog.map((m) => [m.id, m]));
 const unitShort: Record<string, string> = {
   image: "img",

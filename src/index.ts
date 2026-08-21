@@ -71,6 +71,9 @@ export {
 } from "./multimodalRouter";
 export { createRouter } from "./router";
 export { defaultSeeds } from "./seeds";
+export { defaultTierModel } from "./tierModel";
+export type { TierModel, TierPrediction } from "./tierPredictor";
+export { predictTier } from "./tierPredictor";
 export type {
   EmbeddingProvider,
   Route,

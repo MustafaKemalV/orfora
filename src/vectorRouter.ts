@@ -24,6 +24,7 @@ import {
 import { type DifficultyOptions, scoreDifficulty } from "./difficulty";
 import { fitness, type ModelVector } from "./modelVector";
 import { cosineSimilarity } from "./similarity";
+import { predictTier, type TierModel } from "./tierPredictor";
 import type { EmbeddingProvider, RouteInput } from "./types";
 import { defaultVectorCatalog } from "./vectorCatalog";
 
@@ -77,6 +78,12 @@ export interface VectorRouterConfig<TOutput = unknown> {
    * routing to a wrong specialist. Set to false to disable.
    */
   abstain?: { minCosine?: number; minMargin?: number } | false;
+  /**
+   * A learned tier predictor (trained on real routing outcomes) that overrides the
+   * seed-based tier when its embedding space matches the router's. Opt-in, because
+   * the weights only transfer within the embedder they were trained in.
+   */
+  tierPredictor?: TierModel;
   /** Optional handlers to call the chosen model via run(). */
   handlers?: Record<string, VectorHandler<TOutput>>;
 }
@@ -320,7 +327,7 @@ export function createVectorRouter<TOutput = unknown>(
         if (abstainReason) capability = "general_qa";
       }
 
-      // Tier comes from the nearest tier seed, the mechanism that measured best.
+      // Tier comes from the nearest tier seed by default.
       let tier: Tier = "premium";
       let bestTierCosine = Number.NEGATIVE_INFINITY;
       for (const seed of tierBank) {
@@ -329,6 +336,12 @@ export function createVectorRouter<TOutput = unknown>(
           bestTierCosine = score;
           tier = seed.label;
         }
+      }
+      // A learned predictor (trained on real outcomes) overrides the seed tier when
+      // provided and its embedding space matches; otherwise the seed tier stands.
+      if (config.tierPredictor) {
+        const pred = predictTier(config.tierPredictor, query);
+        if (pred) tier = pred.tier;
       }
 
       // Difficulty is reported for transparency (epistemic / aleatoric); it does not
