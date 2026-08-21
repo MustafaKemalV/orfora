@@ -158,6 +158,28 @@ draft-vs-final quality need, then the cheapest that fits. The generative catalog
 ~30 current image / video / speech / music models with live-sourced pricing, coarse
 quality tiers, specialty tags, and a cited source per model.
 
+## Cascade: verify, then escalate
+
+Predicting the tier is one paradigm; verifying an answer is the other. `router.plan()`
+returns an escalation ladder (the best model per price tier, cheapest first) for a
+request's capability, and `runCascade` executes it: call the cheapest, check the answer,
+and climb only when the check fails, so frontier tokens go only to the requests that
+provably needed them.
+
+```ts
+const plan = await router.plan("Explain this stack trace and propose a fix.");
+const result = await runCascade(
+  plan,
+  (step) => callModel(step.model, prompt), // your model call
+  (answer) => heuristicVerify(answer), // your verifier: a judge, a test, a schema check
+);
+// result.step is the model that answered; result.escalated tells you if it climbed.
+```
+
+orfora stays LLM-free here: it plans and runs the ladder, the verifier is yours (a judge
+model, a unit test, a JSON-schema check). `heuristicVerify` is a cheap default that
+rejects empty, too-short, or refusal answers so they escalate.
+
 ## Custom routes
 
 If you want full control, `createRouter` is the primitive underneath both wrappers.

@@ -16,6 +16,7 @@
  * vector for coverage, request-relevant weighting for precision.
  */
 
+import { buildCascade, type CascadePlan } from "./cascade";
 import type { Capability, Tier } from "./catalog";
 import {
   capabilitySeeds as defaultCapabilitySeeds,
@@ -178,7 +179,49 @@ export function matchModel(
   };
 }
 
-/** Creates a model-as-vector router exposing route(input) and, with handlers, run(input). */
+/** The request's capability by nearest capability seed, with OOD/ambiguity abstention. */
+function nearestCapability(
+  query: number[],
+  capBank: { label: Capability; vector: number[] }[],
+  abstain: { minCosine: number; minMargin: number } | null,
+): {
+  capability: Capability;
+  seedDistance: number;
+  abstainReason: string | null;
+} {
+  let capability: Capability = "general_qa";
+  let bestCosine = Number.NEGATIVE_INFINITY;
+  let secondCosine = Number.NEGATIVE_INFINITY;
+  for (const seed of capBank) {
+    const score = cosineSimilarity(query, seed.vector);
+    if (score > bestCosine) {
+      secondCosine = bestCosine;
+      bestCosine = score;
+      capability = seed.label;
+    } else if (score > secondCosine) {
+      secondCosine = score;
+    }
+  }
+  const seedDistance = clamp01(1 - bestCosine);
+  let abstainReason: string | null = null;
+  if (abstain && capability !== "general_qa") {
+    if (bestCosine < abstain.minCosine) abstainReason = "abstain:ood";
+    else if (bestCosine - secondCosine < abstain.minMargin)
+      abstainReason = "abstain:margin";
+    if (abstainReason) capability = "general_qa";
+  }
+  return { capability, seedDistance, abstainReason };
+}
+
+function buildGates(request: RouteInput, capability: Capability): Gates {
+  return {
+    needsImage: (request.attachments?.length ?? 0) > 0,
+    needsWebSearch: capability === "live_web_search",
+    minContext: Math.ceil(request.prompt.length / 3),
+  };
+}
+
+/** Creates a model-as-vector router exposing route(input), run(input), and plan(input). */
 export function createVectorRouter<TOutput = unknown>(
   config: VectorRouterConfig<TOutput>,
 ) {
@@ -302,30 +345,11 @@ export function createVectorRouter<TOutput = unknown>(
       const query = embedded[0];
       if (!query) return failOpen("no-embedding");
 
-      let capability: Capability = "general_qa";
-      let bestCosine = Number.NEGATIVE_INFINITY;
-      let secondCosine = Number.NEGATIVE_INFINITY;
-      for (const seed of capBank) {
-        const score = cosineSimilarity(query, seed.vector);
-        if (score > bestCosine) {
-          secondCosine = bestCosine;
-          bestCosine = score;
-          capability = seed.label;
-        } else if (score > secondCosine) {
-          secondCosine = score;
-        }
-      }
-      const seedDistance = clamp01(1 - bestCosine);
-
-      // Abstain to general_qa on out-of-distribution (far from every capability) or
-      // ambiguous (top two too close) inputs, rather than picking a wrong specialist.
-      let abstainReason: string | null = null;
-      if (abstain && capability !== "general_qa") {
-        if (bestCosine < abstain.minCosine) abstainReason = "abstain:ood";
-        else if (bestCosine - secondCosine < abstain.minMargin)
-          abstainReason = "abstain:margin";
-        if (abstainReason) capability = "general_qa";
-      }
+      const { capability, seedDistance, abstainReason } = nearestCapability(
+        query,
+        capBank,
+        abstain,
+      );
 
       // Tier comes from the nearest tier seed by default.
       let tier: Tier = "premium";
@@ -351,11 +375,7 @@ export function createVectorRouter<TOutput = unknown>(
         seedDistance,
       });
 
-      const gates: Gates = {
-        needsImage: (request.attachments?.length ?? 0) > 0,
-        needsWebSearch: capability === "live_web_search",
-        minContext: Math.ceil(request.prompt.length / 3),
-      };
+      const gates = buildGates(request, capability);
 
       const match = matchModel(catalog, capability, tier, gates, thresholds);
       const base = {
@@ -398,5 +418,33 @@ export function createVectorRouter<TOutput = unknown>(
     return handler(request, decision);
   }
 
-  return { route, run };
+  /**
+   * A cascade plan for the request: the escalation ladder (best model per price tier,
+   * cheapest first) for the detected capability. Feed it to runCascade to start cheap
+   * and climb only when a verifier rejects an answer.
+   */
+  async function plan(input: string | RouteInput): Promise<CascadePlan> {
+    const request: RouteInput =
+      typeof input === "string" ? { prompt: input } : input;
+    const { capability: capBank } = await loadBank();
+    let capability: Capability = "general_qa";
+    if (capBank.length > 0) {
+      const embedded = await embed.embed([request.prompt]);
+      const query = embedded[0];
+      if (query) {
+        capability = nearestCapability(query, capBank, abstain).capability;
+      }
+    }
+    const gates = buildGates(request, capability);
+    const candidates = catalog
+      .filter((m) => passesGates(m, gates))
+      .map((m) => ({ model: m, fitness: fitness(m, capability) }));
+    return {
+      capability,
+      steps: buildCascade(candidates),
+      reason: `cascade:${capability}`,
+    };
+  }
+
+  return { route, run, plan };
 }

@@ -8,6 +8,8 @@
 
 export const VERSION = "0.0.0";
 
+export type { CascadePlan, CascadeResult, CascadeStep } from "./cascade";
+export { buildCascade, heuristicVerify, runCascade } from "./cascade";
 export type { Capability, CatalogModel, PriceTier, Tier } from "./catalog";
 export {
   capabilities,
