@@ -14,7 +14,7 @@ import type { CapabilityScore, ModelClass, ModelVector } from "./modelVector";
  *   tool_use              OSWorld-Verified   -> tau-bench / BFCL    (percent / 100)
  *   instruction_following IFBench                                  (percent / 100)
  *   human_preference_elo  LMArena text Elo                         (Elo: min-max)
- *   creative_writing      no comparable public benchmark           -> left absent
+ *   creative_writing      EQ-Bench Creative % -> LMArena Creative Elo (%/100; Elo: min-max)
  *
  * Because vendors report DIFFERENT suites (SWE-bench Verified vs Pro; Terminal-Bench
  * 2.0/2.1/3.0; OSWorld vs OSWorld-Verified) and some numbers are self-reported or
@@ -49,6 +49,8 @@ interface Raw {
   tau?: number; // tau-bench / BFCL / Toolathlon (tool use)
   ifbench?: number; // IFBench
   elo?: number; // LMArena text Arena Elo
+  creativeEq?: number; // EQ-Bench Creative Writing (percent)
+  creativeElo?: number; // LMArena Creative Writing category Elo
   from: string;
 }
 
@@ -640,6 +642,121 @@ const RAW: Raw[] = [
   },
 ];
 
+// Axis-fill: three formerly-sparse axes, cross-verified from two independent sources
+// each (Aug 2026: EQ-Bench + LMArena Creative Elo for creative_writing; IFBench for
+// instruction_following; LMArena + Swfte reconciled for human_preference_elo). Merged
+// onto the base rows so no whole axis stays uninformed; only present keys are set, so a
+// model's own value is never blanked. Full provenance in the memory research note.
+const AXIS_DATA: Record<string, Partial<Raw>> = {
+  "anthropic/claude-fable-5": {
+    creativeEq: 84.05,
+    creativeElo: 1508,
+    ifbench: 63.5,
+    elo: 1516,
+  },
+  "anthropic/claude-opus-5": {
+    creativeEq: 85.35,
+    creativeElo: 1473,
+    elo: 1508,
+  },
+  "anthropic/claude-sonnet-5": {
+    creativeEq: 82.35,
+    creativeElo: 1436,
+    elo: 1470,
+  },
+  "anthropic/claude-haiku-4-5": { creativeElo: 1390, ifbench: 54.3, elo: 1413 },
+  "openai/gpt-5.6-sol": {
+    creativeEq: 83.9,
+    creativeElo: 1477,
+    ifbench: 72.7,
+    elo: 1482,
+  },
+  "openai/gpt-5.6-terra": {
+    creativeEq: 82.8,
+    creativeElo: 1423,
+    ifbench: 71.2,
+    elo: 1477,
+  },
+  "openai/gpt-5.6-luna": { creativeEq: 82.9, creativeElo: 1407, elo: 1451 },
+  "openai/gpt-5.5-pro": { elo: 1510 },
+  "google/gemini-3.1-pro-preview": {
+    creativeEq: 80.2,
+    creativeElo: 1480,
+    ifbench: 77.1,
+    elo: 1496,
+  },
+  "google/gemini-3.7-flash": {
+    creativeEq: 81.35,
+    creativeElo: 1493,
+    elo: 1490,
+  },
+  "google/gemini-3.6-flash": { creativeEq: 81.1, creativeElo: 1470, elo: 1481 },
+  "google/gemini-3.5-flash": { creativeElo: 1466, ifbench: 76.3, elo: 1478 },
+  "google/gemini-3.5-flash-lite": {
+    creativeEq: 80.75,
+    creativeElo: 1435,
+    elo: 1457,
+  },
+  "google/gemini-3.1-flash-lite": {
+    creativeElo: 1413,
+    ifbench: 77.2,
+    elo: 1432,
+  },
+  "deepseek/deepseek-v4-pro": {
+    creativeEq: 82.25,
+    creativeElo: 1445,
+    ifbench: 76.5,
+    elo: 1460,
+  },
+  "deepseek/deepseek-v4-flash": {
+    creativeEq: 81.45,
+    creativeElo: 1408,
+    ifbench: 79.2,
+    elo: 1436,
+  },
+  "alibaba/qwen3.8-max": { creativeElo: 1469, elo: 1486 },
+  "alibaba/qwen3.7-max": { creativeElo: 1445, ifbench: 80.5, elo: 1481 },
+  "alibaba/qwen3.7-plus": { creativeElo: 1435, ifbench: 78, elo: 1457 },
+  "alibaba/qwen3.8-27b": { creativeEq: 77.5, creativeElo: 1385, elo: 1440 },
+  "meta/muse-spark-1.2": { creativeEq: 82.2, creativeElo: 1451, elo: 1498 },
+  "meta/muse-spark-1.1": { creativeEq: 82.7, creativeElo: 1446, elo: 1491 },
+  "meta/llama-4-maverick": { creativeEq: 52.5, ifbench: 43 },
+  "meta/llama-4-scout": { creativeEq: 45.6, ifbench: 39.5 },
+  "mistralai/mistral-large-3": {
+    creativeEq: 77.45,
+    creativeElo: 1375,
+    ifbench: 36.2,
+    elo: 1414,
+  },
+  "mistralai/mistral-medium-3-5": {
+    creativeElo: 1396,
+    ifbench: 68.8,
+    elo: 1427,
+  },
+  "mistralai/mistral-small-4": { ifbench: 48.2 },
+  "mistralai/ministral-3-14b": { ifbench: 32 },
+  "mistralai/ministral-3-8b": { ifbench: 29.1 },
+  "mistralai/ministral-3-3b": { ifbench: 26.8 },
+  "xai/grok-4.6": { creativeElo: 1457, elo: 1461 },
+  "xai/grok-4.5": { creativeEq: 81.25, creativeElo: 1449, elo: 1484 },
+  "xai/grok-4.3": { creativeElo: 1427, ifbench: 81.3, elo: 1442 },
+  "xai/grok-4.20-0309-reasoning": {
+    creativeElo: 1447,
+    ifbench: 82.9,
+    elo: 1484,
+  },
+  "xai/grok-4.1-fast": {
+    creativeEq: 77.45,
+    creativeElo: 1414,
+    ifbench: 52.7,
+    elo: 1431,
+  },
+};
+
+// The base rows with the axis-fill merged in; spreading `undefined` (for a model with
+// no fill) is a harmless no-op.
+const MERGED: Raw[] = RAW.map((r) => ({ ...r, ...AXIS_DATA[r.id] }));
+
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const pct = (v?: number): number | undefined =>
   typeof v === "number" ? clamp01(v / 100) : undefined;
@@ -647,13 +764,16 @@ const pct = (v?: number): number | undefined =>
 // Global min-max ranges for the two non-percentage benchmarks, computed across the
 // catalog so an index/Elo becomes a relative [0,1] fitness.
 const present = (pick: (r: Raw) => number | undefined): number[] =>
-  RAW.map(pick).filter((x): x is number => typeof x === "number");
+  MERGED.map(pick).filter((x): x is number => typeof x === "number");
 const idxVals = present((r) => r.aaIndex);
 const eloVals = present((r) => r.elo);
+const ceVals = present((r) => r.creativeElo);
 const idxMin = Math.min(...idxVals);
 const idxMax = Math.max(...idxVals);
 const eloMin = Math.min(...eloVals);
 const eloMax = Math.max(...eloVals);
+const ceMin = Math.min(...ceVals);
+const ceMax = Math.max(...ceVals);
 const norm = (
   v: number | undefined,
   lo: number,
@@ -673,6 +793,12 @@ function scoresOf(r: Raw): Partial<Record<CapabilityScore, number>> {
   set("tool_use", pct(r.osworld) ?? pct(r.tau));
   set("instruction_following", pct(r.ifbench));
   set("human_preference_elo", norm(r.elo, eloMin, eloMax));
+  // Creative: the EQ-Bench rubric (absolute %) where present, else the LMArena
+  // Creative Writing Elo normalised across the catalog.
+  set(
+    "creative_writing",
+    pct(r.creativeEq) ?? norm(r.creativeElo, ceMin, ceMax),
+  );
   return s;
 }
 
@@ -703,4 +829,4 @@ function buildCatalog(rows: Raw[]): ModelVector[] {
 }
 
 /** The default catalog: 41 current (Aug 2026) chat models, scored from live data. */
-export const defaultVectorCatalog: ModelVector[] = buildCatalog(RAW);
+export const defaultVectorCatalog: ModelVector[] = buildCatalog(MERGED);
