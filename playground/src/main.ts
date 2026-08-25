@@ -62,11 +62,12 @@ const unitShort: Record<string, string> = {
 const promptEl = document.querySelector("#prompt") as HTMLTextAreaElement;
 const runEl = document.querySelector("#run") as HTMLButtonElement;
 const statusEl = document.querySelector("#status") as HTMLElement;
-const boardEl = document.querySelector("#board") as HTMLElement;
-const genboardEl = document.querySelector("#genboard") as HTMLElement;
+const familiesEl = document.querySelector("#families") as HTMLElement;
 const hudEl = document.querySelector("#hud") as HTMLElement;
 const beamsEl = document.querySelector("#beams") as unknown as SVGSVGElement;
-const chipsEl = document.querySelector("#chips") as HTMLElement;
+const exampleEl = document.querySelector(
+  "#example-select",
+) as HTMLSelectElement;
 
 const circuitEl = document.querySelector(
   "#circuit",
@@ -99,7 +100,6 @@ function drawCircuit() {
   circuitEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
   circuitEl.innerHTML = "";
 
-  // Seed points on the edges: both sides at several heights, plus the floor.
   const traces: Array<{ sx: number; sy: number; floor: boolean }> = [];
   const rows = 6;
   for (let i = 0; i < rows; i++) {
@@ -114,20 +114,16 @@ function drawCircuit() {
   traces.forEach(({ sx, sy, floor }, idx) => {
     let d: string;
     if (floor) {
-      // From the floor: rise along a column, then step across into the node.
       const midY = snap(ty + 92 + (idx % 3) * GRID);
       d = `M ${sx} ${sy} V ${midY} H ${tx} V ${ty}`;
     } else {
-      // From a side: in along a row to a bend column, up/down, then in.
       const midX = snap(sx + (tx - sx) * (0.4 + (idx % 3) * 0.08));
       d = `M ${sx} ${sy} H ${midX} V ${ty} H ${tx}`;
     }
-    // Static line: shows the whole route running along the grid edges.
     const base = document.createElementNS(svgns, "path");
     base.setAttribute("d", d);
     base.setAttribute("class", "trace-base");
     circuitEl.appendChild(base);
-    // Pulse: a bright segment travelling along that exact line to the node.
     const pulse = document.createElementNS(svgns, "path");
     pulse.setAttribute("d", d);
     pulse.setAttribute("class", "trace-pulse");
@@ -139,7 +135,6 @@ function drawCircuit() {
     pulse.style.animationDuration = `${(2.4 + (idx % 4) * 0.35).toFixed(2)}s`;
   });
 
-  // The convergence point itself, pulsing where the traces all arrive.
   const dot = document.createElementNS(svgns, "circle");
   dot.setAttribute("cx", String(tx));
   dot.setAttribute("cy", String(ty));
@@ -150,32 +145,192 @@ function drawCircuit() {
 drawCircuit();
 window.addEventListener("resize", drawCircuit);
 
-// Render the grid of models as nodes.
-const nodeById = new Map<string, HTMLElement>();
+// --- Model families -------------------------------------------------------
+// Instead of a flat wall of ~70 nodes, group models into family cards the way a
+// user thinks of them: chat by vendor family (Claude, GPT, ...), generative by
+// output modality (Image, Video, Speech, Music). A card opens to reveal its
+// models, and a routing decision opens the winning family and promotes the chosen
+// model to the front.
+interface Member {
+  id: string;
+  short: string;
+  sub: string;
+  cls: string;
+}
+interface Family {
+  key: string;
+  label: string;
+  badge: string;
+  unit: string;
+  members: Member[];
+  prices: number[];
+}
+
+const families: Family[] = [];
+const familyByKey = new Map<string, Family>();
+function addMember(
+  key: string,
+  label: string,
+  badge: string,
+  unit: string,
+  member: Member,
+  price: number,
+) {
+  let fam = familyByKey.get(key);
+  if (!fam) {
+    fam = { key, label, badge, unit, members: [], prices: [] };
+    familyByKey.set(key, fam);
+    families.push(fam);
+  }
+  fam.members.push(member);
+  fam.prices.push(price);
+}
+
 for (const m of defaultVectorCatalog) {
-  const node = document.createElement("div");
-  node.className = `node tier-${m.priceTier}`;
-  node.innerHTML =
-    `<span class="node-family">${m.family}</span>` +
-    `<span class="node-id">${shortId(m.id)}</span>` +
-    `<span class="node-meta">${m.priceTier} // $${m.pricePerMTokens}/M</span>`;
-  boardEl.appendChild(node);
-  nodeById.set(m.id, node);
+  addMember(
+    `chat:${m.family}`,
+    m.family,
+    "chat",
+    "/M",
+    {
+      id: m.id,
+      short: shortId(m.id),
+      sub: `${m.priceTier} // $${m.pricePerMTokens}/M`,
+      cls: `tier-${m.priceTier}`,
+    },
+    m.pricePerMTokens,
+  );
 }
-
-// Render the generative models as a second grid, coloured by output modality.
-const genNodeById = new Map<string, HTMLElement>();
+const modLabel: Record<string, string> = {
+  image: "Image",
+  video: "Video",
+  speech: "Speech",
+  music: "Music",
+};
 for (const m of defaultGenerativeCatalog) {
-  const node = document.createElement("div");
-  node.className = `node mod-${m.modality}`;
-  node.innerHTML =
-    `<span class="node-family">${m.family} // ${m.modality}</span>` +
-    `<span class="node-id">${shortId(m.id)}</span>` +
-    `<span class="node-meta">${m.qualityTier} // $${m.pricePerUnit}/${unitShort[m.priceUnit] ?? m.priceUnit}</span>`;
-  genboardEl.appendChild(node);
-  genNodeById.set(m.id, node);
+  const u = unitShort[m.priceUnit] ?? m.priceUnit;
+  addMember(
+    `gen:${m.modality}`,
+    modLabel[m.modality] ?? m.modality,
+    m.modality,
+    `/${u}`,
+    {
+      id: m.id,
+      short: shortId(m.id),
+      sub: `${m.qualityTier} // $${m.pricePerUnit}/${u}`,
+      cls: `mod-${m.modality}`,
+    },
+    m.pricePerUnit,
+  );
 }
 
+// Order each family's models cheapest first.
+for (const fam of families) {
+  const zipped = fam.members.map((mem, i) => ({ mem, p: fam.prices[i] ?? 0 }));
+  zipped.sort((a, b) => a.p - b.p);
+  fam.members = zipped.map((z) => z.mem);
+  fam.prices = zipped.map((z) => z.p);
+}
+
+const familyCardByKey = new Map<string, HTMLElement>();
+const familyKeyByModel = new Map<string, string>();
+
+function priceRange(fam: Family): string {
+  const min = Math.min(...fam.prices);
+  const max = Math.max(...fam.prices);
+  return min === max ? `$${min}${fam.unit}` : `$${min}-${max}${fam.unit}`;
+}
+
+// The cards stay a uniform, calm grid. The open family's models live in a single
+// floating popover that comes to the front over the grid, like a dropdown, so no
+// card is taller than another and only one list is ever open.
+const popover = document.createElement("div");
+popover.className = "family-popover";
+popover.hidden = true;
+familiesEl.appendChild(popover);
+
+let openKey: string | null = null;
+
+function renderPopover(fam: Family, selectedId?: string) {
+  popover.className = `family-popover badge-${fam.badge}`;
+  const members = selectedId
+    ? [...fam.members].sort((a, b) =>
+        a.id === selectedId ? -1 : b.id === selectedId ? 1 : 0,
+      )
+    : fam.members;
+  const rows = members
+    .map((mem) => {
+      const sel = mem.id === selectedId ? " selected" : "";
+      return (
+        `<div class="family-model ${mem.cls}${sel}">` +
+        `<span class="fm-id">${mem.short}</span>` +
+        `<span class="fm-sub">${mem.sub}</span></div>`
+      );
+    })
+    .join("");
+  popover.innerHTML =
+    `<div class="pop-head"><span class="family-badge">${fam.badge}</span>` +
+    `<span class="family-name">${fam.label}</span>` +
+    `<span class="family-range">${priceRange(fam)}</span></div>` +
+    `<div class="pop-models">${rows}</div>`;
+}
+
+function positionPopover(card: HTMLElement) {
+  const width = Math.max(card.offsetWidth, 250);
+  const maxLeft = familiesEl.clientWidth - width - 4;
+  const left = Math.max(4, Math.min(card.offsetLeft, maxLeft));
+  popover.style.left = `${left}px`;
+  popover.style.top = `${card.offsetTop + card.offsetHeight + 6}px`;
+  popover.style.width = `${width}px`;
+}
+
+function openPopover(key: string, selectedId?: string) {
+  const fam = familyByKey.get(key);
+  const card = familyCardByKey.get(key);
+  if (!fam || !card) return;
+  renderPopover(fam, selectedId);
+  positionPopover(card);
+  popover.hidden = false;
+  openKey = key;
+  for (const [k, c] of familyCardByKey) c.classList.toggle("open", k === key);
+}
+
+function closePopover() {
+  popover.hidden = true;
+  openKey = null;
+  for (const c of familyCardByKey.values()) c.classList.remove("open");
+}
+
+for (const fam of families) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = `family-card badge-${fam.badge}`;
+  card.innerHTML =
+    `<span class="family-badge">${fam.badge}</span>` +
+    `<span class="family-name">${fam.label}</span>` +
+    `<span class="family-range">${priceRange(fam)}</span>` +
+    `<span class="family-count">${fam.members.length}</span>`;
+  card.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (openKey === fam.key) closePopover();
+    else openPopover(fam.key);
+  });
+  familiesEl.appendChild(card);
+  familyCardByKey.set(fam.key, card);
+  for (const mem of fam.members) familyKeyByModel.set(mem.id, fam.key);
+}
+
+// Close the popover on an outside click, and keep it aligned on resize.
+document.addEventListener("click", (e) => {
+  if (openKey && !popover.contains(e.target as Node)) closePopover();
+});
+window.addEventListener("resize", () => {
+  if (!openKey) return;
+  const card = familyCardByKey.get(openKey);
+  if (card) positionPopover(card);
+});
+
+// --- Examples -------------------------------------------------------------
 const examples = [
   "Refactor this module to remove the duplication and explain the change.",
   "Prove that the square root of 2 is irrational.",
@@ -190,23 +345,24 @@ const examples = [
   "Compose a lo-fi instrumental track to study to.",
 ];
 for (const ex of examples) {
-  const chip = document.createElement("button");
-  chip.className = "chip";
-  chip.type = "button";
-  chip.textContent = ex.length > 42 ? `${ex.slice(0, 40)}...` : ex;
-  chip.addEventListener("click", () => {
-    promptEl.value = ex;
-    route();
-  });
-  chipsEl.appendChild(chip);
+  const opt = document.createElement("option");
+  opt.value = ex;
+  opt.textContent = ex.length > 58 ? `${ex.slice(0, 56)}...` : ex;
+  exampleEl.appendChild(opt);
 }
+exampleEl.addEventListener("change", () => {
+  if (!exampleEl.value) return;
+  promptEl.value = exampleEl.value;
+  exampleEl.selectedIndex = 0;
+  route();
+});
 
 function drawBeam(target: HTMLElement | undefined) {
   beamsEl.innerHTML = "";
   if (!target) return;
   const src = runEl.getBoundingClientRect();
   const dst = target.getBoundingClientRect();
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  const line = document.createElementNS(svgns, "line");
   line.setAttribute("x1", String(src.left + src.width / 2));
   line.setAttribute("y1", String(src.top + src.height / 2));
   line.setAttribute("x2", String(dst.left + dst.width / 2));
@@ -224,20 +380,16 @@ async function route() {
   try {
     const d = await router.route(prompt);
 
-    for (const node of nodeById.values()) node.classList.remove("active");
-    for (const node of genNodeById.values()) node.classList.remove("active");
-    boardEl.classList.add("decided");
-    genboardEl.classList.add("decided");
+    familiesEl.classList.add("decided");
+    for (const card of familyCardByKey.values())
+      card.classList.remove("active");
 
     hudEl.hidden = false;
     set("#hud-mod", d.modality.toUpperCase());
     set("#hud-model", shortId(d.model));
     set("#hud-l3", d.modality === "text" ? "TIER" : "QUALITY");
     set("#hud-l4", d.modality === "text" ? "FITNESS" : "MATCH");
-
-    let chosen: HTMLElement | undefined;
     if (d.modality === "text") {
-      chosen = nodeById.get(d.model);
       const model = byId.get(d.model);
       set("#hud-tier", d.tier);
       set(
@@ -250,7 +402,6 @@ async function route() {
         `${d.capability} // ${d.reason}${d.fallback ? " (fail-open)" : ""}`,
       );
     } else {
-      chosen = genNodeById.get(d.model);
       set("#hud-tier", d.qualityTier);
       set("#hud-fit", d.tags.length > 0 ? d.tags.join("+") : "-");
       set(
@@ -260,11 +411,16 @@ async function route() {
       set("#hud-reason", d.reason);
     }
 
-    if (chosen) {
-      chosen.classList.add("active");
-      chosen.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-    drawBeam(chosen);
+    // Open the winning family's popover with the chosen model promoted to the front.
+    const key = familyKeyByModel.get(d.model);
+    const card = key ? familyCardByKey.get(key) : undefined;
+    if (key) openPopover(key, d.model);
+    if (card) card.classList.add("active");
+    const selRow = popover.querySelector(
+      ".family-model.selected",
+    ) as HTMLElement | null;
+    if (selRow) selRow.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    drawBeam(selRow ?? card);
     statusEl.textContent = "DECISION LOCKED // best-fit model on the grid";
   } catch (error) {
     statusEl.textContent = `ERROR // ${(error as Error).message}`;

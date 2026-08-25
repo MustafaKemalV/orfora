@@ -25,7 +25,9 @@
         placeholder="Enter a request. e.g. Refactor this module and explain the change."
       ></textarea>
       <button id="run" type="button">ROUTE</button>
-      <div class="chips" id="chips"></div>
+      <select id="example-select" class="example-select" aria-label="example prompts">
+        <option value="">Try an example...</option>
+      </select>
       <div class="status" id="status">
         STANDBY // no key, runs in your browser (the first run downloads a small model)
       </div>
@@ -40,12 +42,8 @@
       <div class="hud-cell wide"><span>REASON</span><b id="hud-reason">-</b></div>
     </section>
 
-    <div class="board-label">CHAT MODELS // text output</div>
-    <section class="board" id="board" aria-label="chat model grid"></section>
-    <div class="board-label">
-      GENERATIVE MODELS // image / video / speech / music
-    </div>
-    <section class="board" id="genboard" aria-label="generative model grid"></section>
+    <div class="board-label">MODEL FAMILIES // click a family to open its models</div>
+    <section class="families" id="families" aria-label="model families"></section>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
