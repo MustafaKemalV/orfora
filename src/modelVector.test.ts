@@ -82,4 +82,16 @@ describe("fitness", () => {
     };
     expect(fitness(model, "math_reasoning")).toBeCloseTo(0.8);
   });
+
+  it("requires the PRIMARY axis: no neutral-prior credit for an unmeasured primary", () => {
+    // Strong on tool_use but NO code axis: it must not win a code request off the 0.6
+    // neutral prior on code_agentic. A measured-but-weaker coder still scores.
+    const toolOnly: ModelVector = {
+      ...base,
+      scores: { tool_use: 1, instruction_following: 1 },
+    };
+    expect(fitness(toolOnly, "code")).toBeNull();
+    const weakCoder: ModelVector = { ...base, scores: { code_agentic: 0.4 } };
+    expect(fitness(weakCoder, "code") ?? 0).toBeGreaterThan(0);
+  });
 });

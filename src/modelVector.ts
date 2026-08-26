@@ -109,27 +109,36 @@ export const capabilityRelevance: Record<
 const NEUTRAL_PRIOR = 0.5;
 
 /**
- * A model's fitness for a capability: the relevance-weighted average of the axes
- * that matter, where an unmeasured axis is filled with {@link NEUTRAL_PRIOR} rather
- * than renormalised away (which would let a single high axis inflate a sparse model).
- * Returns null only when NO relevant axis has a score, so the router can fall back to
- * price-tier routing instead of trusting a fabricated value.
+ * A model's fitness for a capability: the relevance-weighted average of the axes that
+ * matter, where a minor unmeasured axis is filled with {@link NEUTRAL_PRIOR}.
+ *
+ * The PRIMARY axis (the highest-weighted one for the capability) is required: if the
+ * model has no score there, fitness is null so the router degrades to price-tier
+ * routing. Without this, the neutral prior on the most-weighted axis lets an UNMEASURED
+ * model outrank a measured-but-weaker one (e.g. a model with no code score winning a
+ * code request off a 0.5 prior). We do not credit a model on what the request needs
+ * most when we cannot measure it there.
  */
 export function fitness(
   model: ModelVector,
   capability: Capability,
 ): number | null {
   const weights = capabilityRelevance[capability];
-  let sum = 0;
-  let anyMeasured = false;
+
+  let primary: CapabilityScore | undefined;
+  let primaryWeight = Number.NEGATIVE_INFINITY;
   for (const [dim, weight] of Object.entries(weights)) {
-    const score = model.scores[dim as CapabilityScore];
-    if (typeof score === "number") {
-      sum += weight * score;
-      anyMeasured = true;
-    } else {
-      sum += weight * NEUTRAL_PRIOR;
+    if (weight > primaryWeight) {
+      primaryWeight = weight;
+      primary = dim as CapabilityScore;
     }
   }
-  return anyMeasured ? sum : null;
+  if (primary && typeof model.scores[primary] !== "number") return null;
+
+  let sum = 0;
+  for (const [dim, weight] of Object.entries(weights)) {
+    const score = model.scores[dim as CapabilityScore];
+    sum += weight * (typeof score === "number" ? score : NEUTRAL_PRIOR);
+  }
+  return sum;
 }
