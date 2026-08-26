@@ -296,12 +296,12 @@ matching and out-of-distribution abstention:
   35% for the seeds and 33% majority. It is embedding-space specific, so it ships off by
   default and is enabled where the embedder matches (as in the playground).
 - **Cost and quality, the right-fit lens** (not a cheap-ratio): routing each request to
-  its best-fit model keeps about **89% of the quality of always using the top flagship at
-  roughly 7% of its cost** on the main set, because a task-tuned model often matches a
-  pricey generalist on its own task while costing far less. Quality here is a
-  benchmark-fitness proxy, not measured answer quality. (The ratio is lower, and more
-  honest, than earlier numbers now that every capability axis carries real data rather
-  than a neutral prior, so the flagship's true edge shows.)
+  its best-fit model keeps about **91% of the quality of always using the top flagship at
+  roughly 4% of its cost** on the main set (89% quality at 6% cost on the adversarial
+  set), because a task-tuned model often matches a pricey generalist on its own task
+  while costing far less. Quality here is a benchmark-fitness proxy, not measured answer
+  quality. Tier thresholds are derived from the catalog's own fitness distribution, so
+  every tier is reachable rather than an unreachable hand-set bar.
 
 Reproduce with `npm run eval:catalog` or `npm run eval:vector`.
 

@@ -75,17 +75,32 @@ const searchModel = chat({
 
 const catalog = [cheapCoder, strongCoder, generalist, visionModel, searchModel];
 
+// Fixed bars for the hand-built unit tests: these probe matchModel's logic, so they
+// pin the thresholds rather than depend on the catalog-derived defaults.
+const FIXED_THRESHOLDS = { cheap: 0.4, mid: 0.7, premium: 0.9, ultra: 0.95 };
+
 describe("matchModel", () => {
   it("picks the cheapest model clearing the tier bar", () => {
-    // code + cheap: both coders clear 0.5, pick the cheaper.
-    expect(matchModel(catalog, "code", "cheap").model?.id).toBe("cheap-coder");
+    // code + cheap 0.4: both coders clear it, pick the cheaper.
+    expect(
+      matchModel(catalog, "code", "cheap", {}, FIXED_THRESHOLDS).model?.id,
+    ).toBe("cheap-coder");
   });
 
   it("demands a high-fitness model at premium", () => {
-    // code + premium bar 0.9: only the strong coder qualifies.
-    expect(matchModel(catalog, "code", "premium").model?.id).toBe(
-      "strong-coder",
-    );
+    // code + premium 0.9: only the strong coder clears it.
+    expect(
+      matchModel(catalog, "code", "premium", {}, FIXED_THRESHOLDS).model?.id,
+    ).toBe("strong-coder");
+  });
+
+  it("derives reachable tier thresholds, so premium is not an inert fallback (I1)", () => {
+    // Hand-set 0.9/0.95 bars were above the real catalog's max fitness, so premium
+    // always fell to the strongest-model branch. Distribution-derived bars are
+    // reachable via the normal fit path.
+    const d = matchModel(defaultVectorCatalog, "code", "premium");
+    expect(d.reason).toBe("fit");
+    expect(d.fitness ?? 0).toBeGreaterThan(0.7);
   });
 
   it("respects the image gate", () => {
@@ -146,6 +161,7 @@ function makeRouter(overrides: Partial<VectorRouterConfig> = {}) {
     embed: testEmbed,
     catalog,
     capabilitySeeds,
+    thresholds: FIXED_THRESHOLDS,
     ...overrides,
   });
 }

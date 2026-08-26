@@ -23,7 +23,7 @@ import {
   tierSeeds as defaultTierSeeds,
 } from "./catalogSeeds";
 import { type DifficultyOptions, scoreDifficulty } from "./difficulty";
-import { fitness, type ModelVector } from "./modelVector";
+import { capabilityRelevance, fitness, type ModelVector } from "./modelVector";
 import { cosineSimilarity } from "./similarity";
 import { predictTier, type TierModel } from "./tierPredictor";
 import type { EmbeddingProvider, RouteInput } from "./types";
@@ -89,12 +89,39 @@ export interface VectorRouterConfig<TOutput = unknown> {
   handlers?: Record<string, VectorHandler<TOutput>>;
 }
 
-const DEFAULT_THRESHOLDS: Record<Tier, number> = {
-  cheap: 0.5,
-  mid: 0.7,
-  premium: 0.9,
-  ultra: 0.95,
-};
+// Tier thresholds are DERIVED from the catalog's own fitness distribution, not hand
+// set. A fixed 0.9 "premium" bar was unreachable for code and creative writing (whose
+// fitness tops out near 0.85), so those tiers always fell to the strongest-model branch
+// and the tier axis went inert. Percentiles keep every tier reachable and meaningful,
+// and recalibrate automatically when the catalog changes.
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const i = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.round(p * (sorted.length - 1))),
+  );
+  return sorted[i] ?? 0;
+}
+function deriveThresholds(models: ModelVector[]): Record<Tier, number> {
+  const vals: number[] = [];
+  for (const m of models)
+    for (const cap of Object.keys(capabilityRelevance) as Capability[]) {
+      const f = fitness(m, cap);
+      if (f !== null) vals.push(f);
+    }
+  vals.sort((a, b) => a - b);
+  // Percentiles of the fitness distribution: cheap floors at the bottom quartile (a
+  // modest model, not rock-bottom), each tier above it a real step, premium the top
+  // fifth, ultra the top tenth. Reachable by construction, and self-recalibrating.
+  return {
+    cheap: percentile(vals, 0.25),
+    mid: percentile(vals, 0.55),
+    premium: percentile(vals, 0.8),
+    ultra: percentile(vals, 0.92),
+  };
+}
+const DEFAULT_THRESHOLDS: Record<Tier, number> =
+  deriveThresholds(defaultVectorCatalog);
 
 const TIER_TO_PRICE: Record<Tier, "cheap" | "mid" | "premium"> = {
   cheap: "cheap",
