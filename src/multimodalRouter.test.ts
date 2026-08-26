@@ -37,7 +37,7 @@ const CUES: Record<(typeof DIMS)[number], RegExp> = {
 };
 const fakeEmbed = (text: string): number[] => {
   const t = text.toLowerCase();
-  const v = DIMS.map((d) => (CUES[d].test(t) ? 1 : 0));
+  const v: number[] = DIMS.map((d) => (CUES[d].test(t) ? 1 : 0));
   v.push(0.25); // bias so unrelated vectors still have a defined cosine
   return v;
 };

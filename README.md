@@ -240,6 +240,56 @@ With `orfora/openrouter` this is a one-liner: `openrouterHandlers({ apiKey })` b
 a handler for every model in the shared catalog, so it works with both the catalog
 router and the vector router, and `run()` decides and calls through your key.
 
+## Drop it in: the OpenAI-compatible gateway
+
+`orfora/gateway` is the wrapping surface. Keep your OpenAI-shaped code, set
+`model: "auto"`, and every request routes to its best-fit model. The prompt is embedded
+ONCE for routing, then the call is forwarded verbatim with the model swapped, streaming
+and all, and the routing shows up as metadata.
+
+**In-process (an OpenAI-SDK-shaped client):**
+
+```ts
+import { createOrforaClient } from "orfora/gateway";
+import { openaiEmbedder } from "orfora/openai";
+
+const client = createOrforaClient({
+  embed: openaiEmbedder({ apiKey: process.env.OPENAI_API_KEY }),
+  forward: { mode: "openrouter", apiKey: process.env.OPENROUTER_API_KEY },
+});
+
+const res = await client.chat.completions.create({
+  model: "auto", // or pin a model id to skip routing
+  messages: [{ role: "user", content: "Refactor this module and explain the change." }],
+});
+// res.orfora = { routed, model, capability, tier, fitness, estCostPerMTokens }
+
+// streaming works the same: for await (const chunk of await client.chat.completions
+//   .create({ model: "auto", stream: true, messages })) { ... }
+```
+
+**As a proxy (any language, any stack).** `orforaHandler` is a fetch-style
+`(Request) => Response`, so it drops onto Vercel edge, Bun, Deno, or Node. Point your
+OpenAI base URL at it and set `model: "auto"`:
+
+```ts
+// api/chat.ts (Vercel edge)
+import { orforaHandler } from "orfora/gateway";
+import { openaiEmbedder } from "orfora/openai";
+
+export const config = { runtime: "edge" };
+export default orforaHandler({
+  embed: openaiEmbedder({ apiKey: process.env.OPENAI_API_KEY }),
+  forward: { mode: "openrouter", apiKey: process.env.OPENROUTER_API_KEY },
+});
+```
+
+Forwarding is flexible: `{ mode: "openrouter", apiKey }` reaches every model with one
+key, or `{ mode: "providers", providers: { anthropic: { baseURL, apiKey }, ... } }`
+sends each request to your own provider keys (the bare model name to each provider's
+OpenAI-compatible endpoint). Streaming passes through as `text/event-stream`, and the
+routing decision rides along in `x-orfora-*` response headers.
+
 ## Tuning
 
 - **Seeds.** A handful per route is enough to start, five to ten each. The closer
