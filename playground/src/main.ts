@@ -419,7 +419,10 @@ async function route() {
     const selRow = popover.querySelector(
       ".family-model.selected",
     ) as HTMLElement | null;
-    if (selRow) selRow.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Instant, not smooth: a smooth scroll repaints the animated Tron layers every
+    // frame for a second or two, which makes the glow strobe. "nearest" still means
+    // no scroll at all when the row is already visible.
+    if (selRow) selRow.scrollIntoView({ behavior: "instant", block: "nearest" });
     drawBeam(selRow ?? card);
     statusEl.textContent = "DECISION LOCKED // best-fit model on the grid";
   } catch (error) {
