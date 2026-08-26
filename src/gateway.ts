@@ -215,5 +215,164 @@ export function createGateway<TOutput = unknown>(
     return { data, meta };
   }
 
-  return { route, chatCompletion, forward };
+  /**
+   * The primitive both surfaces build on: route, forward (respecting `stream`), and
+   * return the raw upstream Response plus the routing metadata.
+   */
+  async function handle(
+    request: ChatCompletionRequest,
+  ): Promise<{ meta: OrforaMeta; response: Response }> {
+    const { model, meta } = await route(request);
+    const response = await forward(model, { ...request, model });
+    return { meta, response };
+  }
+
+  return { route, chatCompletion, handle, forward, withMeta };
+}
+
+/** Routing metadata as `x-orfora-*` response headers. */
+function metaHeaders(meta: OrforaMeta): Record<string, string> {
+  const h: Record<string, string> = {
+    "x-orfora-model": meta.model,
+    "x-orfora-routed": String(meta.routed),
+  };
+  if (meta.capability) h["x-orfora-capability"] = meta.capability;
+  if (meta.tier) h["x-orfora-tier"] = meta.tier;
+  if (typeof meta.fitness === "number") {
+    h["x-orfora-fitness"] = meta.fitness.toFixed(3);
+  }
+  return h;
+}
+
+function errorResponse(
+  status: number,
+  message: string,
+  headers: Record<string, string> = {},
+): Response {
+  return new Response(
+    JSON.stringify({ error: { message, type: "orfora_gateway_error" } }),
+    { status, headers: { "content-type": "application/json", ...headers } },
+  );
+}
+
+/**
+ * An OpenAI-compatible HTTP handler: `(Request) => Promise<Response>`, mountable at
+ * `/v1/chat/completions` on any fetch-style runtime (Vercel edge, Bun, Deno, or Node
+ * via an adapter). Point your OpenAI base URL at it and set `model: "auto"`; streaming
+ * passes through untouched, and routing shows up in `x-orfora-*` headers.
+ */
+export function orforaHandler<TOutput = unknown>(
+  config: GatewayConfig<TOutput>,
+): (request: Request) => Promise<Response> {
+  const gw = createGateway(config);
+  return async (request) => {
+    let body: ChatCompletionRequest;
+    try {
+      body = (await request.json()) as ChatCompletionRequest;
+    } catch {
+      return errorResponse(400, "invalid JSON body");
+    }
+    if (!body || !Array.isArray(body.messages)) {
+      return errorResponse(400, "a messages[] array is required");
+    }
+    try {
+      const { meta, response } = await gw.handle(body);
+      const headers = metaHeaders(meta);
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        return errorResponse(
+          response.status,
+          `upstream error for "${meta.model}": ${detail}`.trim(),
+          headers,
+        );
+      }
+      if (body.stream && response.body) {
+        return new Response(response.body, {
+          status: 200,
+          headers: { "content-type": "text/event-stream", ...headers },
+        });
+      }
+      const data = (await response.json()) as Record<string, unknown>;
+      if (gw.withMeta) data.orfora = meta;
+      return new Response(JSON.stringify(data), {
+        status: 200,
+        headers: { "content-type": "application/json", ...headers },
+      });
+    } catch (e) {
+      return errorResponse(500, (e as Error).message);
+    }
+  };
+}
+
+/** Parse an upstream SSE stream into OpenAI chunk objects; tag the first with meta. */
+async function* streamChunks(
+  response: Response,
+  meta: OrforaMeta,
+  withMeta: boolean,
+): AsyncGenerator<Record<string, unknown>> {
+  const body = response.body;
+  if (!body) return;
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let first = true;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    for (;;) {
+      const idx = buffer.indexOf("\n\n");
+      if (idx === -1) break;
+      const event = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      for (const line of event.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const payload = trimmed.slice(5).trim();
+        if (payload === "[DONE]") return;
+        try {
+          const obj = JSON.parse(payload) as Record<string, unknown>;
+          if (first && withMeta) {
+            obj.orfora = meta;
+            first = false;
+          }
+          yield obj;
+        } catch {
+          // Ignore keep-alive / non-JSON lines.
+        }
+      }
+    }
+  }
+}
+
+/**
+ * An in-process, OpenAI-SDK-shaped client. Wrap it around your app and call
+ * `client.chat.completions.create({ model: "auto", messages, stream })`: non-stream
+ * returns the completion (with an `orfora` field); stream returns an async iterable of
+ * chunks (the first tagged with routing metadata).
+ */
+export function createOrforaClient<TOutput = unknown>(
+  config: GatewayConfig<TOutput>,
+) {
+  const gw = createGateway(config);
+  return {
+    chat: {
+      completions: {
+        create: async (request: ChatCompletionRequest) => {
+          if (!request.stream) {
+            const { data } = await gw.chatCompletion(request);
+            return data;
+          }
+          const { meta, response } = await gw.handle(request);
+          if (!response.ok) {
+            const detail = await response.text().catch(() => "");
+            throw new Error(
+              `orfora/gateway: upstream ${response.status} for "${meta.model}". ${detail}`.trim(),
+            );
+          }
+          return streamChunks(response, meta, gw.withMeta);
+        },
+      },
+    },
+  };
 }
