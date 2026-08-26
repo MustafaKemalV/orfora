@@ -1,7 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/openai.ts", "src/local.ts", "src/openrouter.ts"],
+  entry: [
+    "src/index.ts",
+    "src/openai.ts",
+    "src/local.ts",
+    "src/openrouter.ts",
+    "src/gateway.ts",
+  ],
   format: ["esm", "cjs"],
   dts: true,
   clean: true,

@@ -37,6 +37,11 @@
       "types": "./dist/openrouter.d.ts",
       "import": "./dist/openrouter.js",
       "require": "./dist/openrouter.cjs"
+    },
+    "./gateway": {
+      "types": "./dist/gateway.d.ts",
+      "import": "./dist/gateway.js",
+      "require": "./dist/gateway.cjs"
     }
   },
   "files": [
