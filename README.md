@@ -67,8 +67,9 @@ on two independent axes and maps the result to a concrete model:
 - **Tier** (how strong a model it warrants): `cheap`, `mid`, `premium`, plus an
   opt-in `ultra` for the hardest code and reasoning.
 
-It ships with a catalog of about fifty real models across the major families and a
-default grid that maps each capability and tier to a best-fit model. Deterministic
+It ships over the same current catalog as the vector router (one shared source of
+model identity) and a default grid that maps each capability and tier to a best-fit
+model. Deterministic
 signals run alongside the semantic match: an attachment routes to a vision model, a
 very long prompt to a long-context model, freshness words ("today", "latest") to
 live web search, and a multi-intent premium request escalates to `ultra`. Anything
@@ -236,7 +237,8 @@ const answer = await router.run("Summarize this in one line.");
 ```
 
 With `orfora/openrouter` this is a one-liner: `openrouterHandlers({ apiKey })` builds
-a handler for every catalog model, so `run()` decides and calls through your key.
+a handler for every model in the shared catalog, so it works with both the catalog
+router and the vector router, and `run()` decides and calls through your key.
 
 ## Tuning
 

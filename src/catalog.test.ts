@@ -20,20 +20,20 @@ const referenced = [
 ];
 
 describe("catalog", () => {
-  it("has around fifty models with unique, non-empty ids", () => {
-    expect(catalog.length).toBeGreaterThanOrEqual(50);
+  it("has the current models with unique, non-empty ids", () => {
+    expect(catalog.length).toBeGreaterThanOrEqual(40);
     expect(catalog.every((m) => m.id.trim().length > 0)).toBe(true);
     expect(ids.size).toBe(catalog.length);
   });
 
   it("keeps each model's price band consistent with its tier", () => {
     for (const m of catalog) {
-      if (m.tier === "cheap") expect(m.pricePerMTokens).toBeLessThanOrEqual(1);
+      if (m.tier === "cheap") expect(m.pricePerMTokens).toBeLessThanOrEqual(3);
       else if (m.tier === "premium")
-        expect(m.pricePerMTokens).toBeGreaterThanOrEqual(12);
+        expect(m.pricePerMTokens).toBeGreaterThan(15);
       else {
-        expect(m.pricePerMTokens).toBeGreaterThan(1);
-        expect(m.pricePerMTokens).toBeLessThan(12);
+        expect(m.pricePerMTokens).toBeGreaterThan(3);
+        expect(m.pricePerMTokens).toBeLessThanOrEqual(15);
       }
     }
   });

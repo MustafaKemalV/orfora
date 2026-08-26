@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { openrouterEmbedder, openrouterHandlers } from "./openrouter";
-import type { RouteInput } from "./types";
+import type { EmbeddingProvider, RouteInput } from "./types";
+import { defaultVectorCatalog } from "./vectorCatalog";
+import { createVectorRouter } from "./vectorRouter";
 
 function mockFetch(payload: unknown, ok = true, status = 200) {
   return vi.fn(
@@ -49,7 +51,22 @@ describe("openrouterHandlers", () => {
     });
     expect(handlers["anthropic/claude-opus-5"]).toBeTypeOf("function");
     expect(handlers["perplexity/sonar-pro"]).toBeTypeOf("function");
-    expect(Object.keys(handlers).length).toBeGreaterThanOrEqual(50);
+    expect(Object.keys(handlers).length).toBeGreaterThanOrEqual(40);
+  });
+
+  it("covers every vector-router chat model, so run() wires up with no throw", () => {
+    const handlers = openrouterHandlers({
+      apiKey: "sk-or",
+      fetch: mockFetch({}),
+    });
+    for (const m of defaultVectorCatalog) {
+      if (m.modelClass === "chat")
+        expect(handlers[m.id]).toBeTypeOf("function");
+    }
+    const embed: EmbeddingProvider = {
+      embed: async (t) => t.map(() => [0, 0, 0, 0]),
+    };
+    expect(() => createVectorRouter({ embed, handlers })).not.toThrow();
   });
 
   it("throws with the status code on non-ok responses", async () => {
