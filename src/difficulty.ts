@@ -10,8 +10,10 @@
  *     model will not help, so do not pay to escalate.
  *
  * Weights are hand-tuned to ship (grouped by evidence strength) and are meant to be
- * recalibrated later from observed cheap-model outcomes, not treated as ground
- * truth. No large-model call is ever made, so routing stays fast and cheap.
+ * recalibrated later from observed cheap-model outcomes, not treated as ground truth.
+ * This scorer is EXPERIMENTAL: the router reports it for transparency but does NOT use
+ * it to pick the tier (that is seed-cosine / a learned predictor). No large-model call
+ * is ever made, so routing stays fast and cheap.
  */
 
 import type { Tier } from "./catalog";
@@ -46,7 +48,11 @@ export interface DifficultyOptions {
 export interface DifficultyResult {
   /** Combined difficulty in [0,1]. */
   difficulty: number;
-  /** The tier the difficulty maps to. */
+  /**
+   * The tier the difficulty maps to. EXPERIMENTAL, reported for transparency only: the
+   * router does NOT use it (tier is decided by seed-cosine or a learned predictor),
+   * pending a calibration from real outcome data. Do not wire it into routing.
+   */
   tier: Tier;
   /** Epistemic component (unfamiliarity): high argues for escalation. */
   epistemic: number;
@@ -58,7 +64,7 @@ export interface DifficultyResult {
 
 const DEFAULT_WEIGHTS: DifficultyWeights = {
   epistemic: 2.5, // strong: distance-to-seed (OOD / epistemic uncertainty)
-  length: 1.5, // strong: bucketed prompt length
+  length: 0.6, // moderate: bucketed prompt length (a long paste is not itself hard)
   multiIntent: 1.0, // moderate: sub-question / hop count
   numeric: 0.8, // moderate: numeric / symbolic density
   codeBlock: 0.8, // moderate: code presence
