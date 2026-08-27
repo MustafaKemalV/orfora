@@ -6,8 +6,9 @@
  * Routing does NOT compare the whole vector blindly. Given a request's capability,
  * only the RELEVANT scores are weighted (a code request cares about code, not
  * creative writing), so a rich vector adds coverage without adding noise. Scores
- * are filled from real benchmarks; unknown scores are simply absent, and fitness()
- * renormalises over whatever is present rather than penalising a missing number.
+ * are filled from real benchmarks; unknown scores are simply absent. fitness() averages
+ * over the axes actually measured, then shrinks toward the prior by how few there are,
+ * so one lucky number cannot outrank a fuller, well-measured profile.
  */
 
 import type { Capability } from "./catalog";
@@ -100,24 +101,21 @@ export const capabilityRelevance: Record<
   },
 };
 
-/**
- * A neutral prior for an unmeasured axis: "assume average". Filling a data gap with
- * this instead of renormalising it away means a model with one high measured axis is
- * NOT inflated over a fuller-but-lower profile, and a model with no data is not
- * punished as if it scored zero.
- */
+/** The prior fitness of an unmeasured model: "assume average". */
 const NEUTRAL_PRIOR = 0.5;
 
 /**
- * A model's fitness for a capability: the relevance-weighted average of the axes that
- * matter, where a minor unmeasured axis is filled with {@link NEUTRAL_PRIOR}.
+ * A model's fitness for a capability in [0,1], or null when it cannot be judged.
  *
- * The PRIMARY axis (the highest-weighted one for the capability) is required: if the
- * model has no score there, fitness is null so the router degrades to price-tier
- * routing. Without this, the neutral prior on the most-weighted axis lets an UNMEASURED
- * model outrank a measured-but-weaker one (e.g. a model with no code score winning a
- * code request off a 0.5 prior). We do not credit a model on what the request needs
- * most when we cannot measure it there.
+ * The PRIMARY axis (the highest-weighted one for the capability) is REQUIRED: with no
+ * score there, fitness is null and the router degrades to price-tier routing, so we
+ * never credit a model on what the request needs most when we cannot measure it there.
+ *
+ * Otherwise: take the relevance-weighted mean over the axes we DID measure (renormalised,
+ * so a missing minor axis neither inflates nor deflates the score), then shrink that mean
+ * toward {@link NEUTRAL_PRIOR} by the fraction of relevant axes left unmeasured. A model
+ * judged on all its relevant axes is trusted fully; one judged on a single axis is pulled
+ * toward average, so a lone high benchmark number can no longer claim a top score.
  */
 export function fitness(
   model: ModelVector,
@@ -135,10 +133,19 @@ export function fitness(
   }
   if (primary && typeof model.scores[primary] !== "number") return null;
 
-  let sum = 0;
+  let presentWeight = 0;
+  let weightedScore = 0;
+  let measured = 0;
   for (const [dim, weight] of Object.entries(weights)) {
     const score = model.scores[dim as CapabilityScore];
-    sum += weight * (typeof score === "number" ? score : NEUTRAL_PRIOR);
+    if (typeof score === "number") {
+      presentWeight += weight;
+      weightedScore += weight * score;
+      measured += 1;
+    }
   }
-  return sum;
+  if (presentWeight === 0) return null;
+  const mean = weightedScore / presentWeight;
+  const coverage = measured / Object.keys(weights).length;
+  return coverage * mean + (1 - coverage) * NEUTRAL_PRIOR;
 }

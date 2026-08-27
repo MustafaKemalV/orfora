@@ -46,11 +46,11 @@ describe("fitness", () => {
     expect(fitness(model, "code")).toBeCloseTo(1);
   });
 
-  it("fills a missing axis with the neutral prior, not renormalisation", () => {
-    // Only code_agentic (weight 0.6) is present at 1.0; the missing axes get the 0.5
-    // prior, so fitness = 0.6*1 + 0.4*0.5 = 0.8, NOT 1.0. One high axis cannot inflate.
+  it("shrinks a thin profile toward the prior by axis coverage", () => {
+    // Only code_agentic present (1 of code's 4 relevant axes) at 1.0; coverage is 1/4,
+    // so fitness = 0.25*1 + 0.75*0.5 = 0.625. One measured axis cannot claim a top score.
     const model: ModelVector = { ...base, scores: { code_agentic: 1 } };
-    expect(fitness(model, "code")).toBeCloseTo(0.8);
+    expect(fitness(model, "code")).toBeCloseTo(0.625);
   });
 
   it("does not let a sparse high-axis model beat a fuller lower one", () => {
