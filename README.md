@@ -21,15 +21,13 @@ hard one goes to a strong model. Low cost is a consequence of good fit, not the 
 orfora returns a *decision*, it does not sit in front of your model calls. There is
 no proxy hop, no extra service to run, and no single point of failure.
 
-> **Status: early development.** The core works and is covered by tests. The API
-> may still change, and it is not published to npm yet.
+> **Status: early development (0.1.0).** The core works, is covered by tests, and is on
+> npm. The API may still change before 1.0.
 
 ## Install
 
-Not yet on npm. Until the first release, install from GitHub:
-
 ```sh
-npm install github:MustafaKemalV/orfora
+npm install orfora
 ```
 
 orfora needs **two things**: an **embedder** (to turn a request into a vector and route

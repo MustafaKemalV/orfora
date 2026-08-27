@@ -4,7 +4,9 @@ All notable changes to orfora are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/). The project is pre-release (`0.0.0`),
 so the API may still change and there is no npm release yet.
 
-## [Unreleased]
+## [0.1.0] - 2026-08-27
+
+First npm release.
 
 ### Added
 
