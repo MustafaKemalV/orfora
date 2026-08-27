@@ -94,6 +94,18 @@ describe("matchModel", () => {
     ).toBe("strong-coder");
   });
 
+  it("premium takes the strongest eligible model, cheap the cheapest (FM-1)", () => {
+    // Both coders clear a 0.5 bar: the cheap tier optimises cost, premium optimises
+    // quality, so the same candidate set resolves to different models by tier.
+    const bars = { cheap: 0.5, mid: 0.5, premium: 0.5, ultra: 0.95 };
+    expect(matchModel(catalog, "code", "cheap", {}, bars).model?.id).toBe(
+      "cheap-coder",
+    );
+    expect(matchModel(catalog, "code", "premium", {}, bars).model?.id).toBe(
+      "strong-coder",
+    );
+  });
+
   it("derives reachable tier thresholds, so premium is not an inert fallback (I1)", () => {
     // Hand-set 0.9/0.95 bars were above the real catalog's max fitness, so premium
     // always fell to the strongest-model branch. Distribution-derived bars are

@@ -6,11 +6,11 @@
  *   2. finds the nearest tier seed -> the tier (the tier-seed match measured best;
  *      the multi-factor difficulty scorer is reported but experimental, awaiting a
  *      calibration from real outcome data, so it does not decide the tier);
- *   3. matches against the model catalog: apply hard gates, then among the
- *      survivors pick the CHEAPEST model whose relevance-weighted fitness for the
- *      capability clears the tier's bar. If no model has scores yet, it degrades
- *      gracefully to price-tier routing; if nothing clears the bar, it fails open
- *      to the strongest available. Anything unclear or throwing falls open too.
+ *   3. matches against the model catalog: apply hard gates, then among the models
+ *      whose relevance-weighted fitness clears the tier's bar pick the cheapest at
+ *      lower tiers or the strongest at premium/ultra. If no model has scores yet, it
+ *      degrades gracefully to price-tier routing; if nothing clears the bar, it fails
+ *      open to the strongest available. Anything unclear or throwing falls open too.
  *
  * This unifies the capability x tier grid into one profile match: a full model
  * vector for coverage, request-relevant weighting for precision.
@@ -162,9 +162,11 @@ function passesGates(m: ModelVector, gates: Gates): boolean {
 }
 
 /**
- * Picks the best-fit model for a capability at a tier, subject to hard gates.
- * Cheapest model clearing the tier's fitness bar; else the strongest available;
- * else, when no model has scores, the cheapest at the matching price tier.
+ * Picks the best-fit model for a capability at a tier, subject to hard gates. Among the
+ * models clearing the tier's fitness bar, lower tiers take the CHEAPEST (cost-efficient
+ * when "good enough" suffices) and premium/ultra take the STRONGEST (a hard request
+ * should get the best model, not the cheapest that merely clears). If none clears the
+ * bar, the strongest available; if no model has scores, the cheapest at the price tier.
  */
 export function matchModel(
   catalog: ModelVector[],
@@ -186,9 +188,14 @@ export function matchModel(
     const required = thresholds[tier];
     const eligible = scored.filter((s) => s.f >= required);
     if (eligible.length > 0) {
-      const best = eligible.reduce((a, b) =>
-        cheaper(a.m, b.m) === b.m ? b : a,
-      );
+      // Lower tiers optimise cost; premium and ultra optimise quality, so a hard
+      // request gets the strongest model rather than the cheapest that clears the bar.
+      const qualityFirst = tier === "premium" || tier === "ultra";
+      const best = qualityFirst
+        ? eligible.reduce((a, b) =>
+            b.f > a.f || (b.f === a.f && cheaper(a.m, b.m) === b.m) ? b : a,
+          )
+        : eligible.reduce((a, b) => (cheaper(a.m, b.m) === b.m ? b : a));
       return { model: best.m, fitness: best.f, reason: "fit" };
     }
     const strongest = scored.reduce((a, b) => (b.f > a.f ? b : a));
