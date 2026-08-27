@@ -414,19 +414,19 @@ matching and out-of-distribution abstention:
   cheapest tier that actually solved it), reaches **56% under 5-fold cross-validation** vs
   35% for the seeds and 33% majority. It is embedding-space specific, so it ships off by
   default and is enabled where the embedder matches (as in the playground).
-- **Cost, with an honest caveat** (not a quality guarantee): routing each request to its
-  best-fit model keeps the chosen models close to the top flagship's *benchmark fitness*
-  while paying a small fraction of its price, because a task-tuned model often matches a
-  pricey generalist on its own task. Read this as a **cost signal, not a measured-quality
+- **Cost, with an honest caveat** (not a quality guarantee): on the main set the routed
+  models average **90% of the flagship's benchmark fitness (0.780 vs 0.866) at 11.5% of
+  its cost ($5.73 vs $50.00 per M tokens)**, and **89% of fitness (0.775 vs 0.872) at 19%
+  of cost** on the adversarial set. Read this as a **cost signal, not a measured-quality
   claim**: the "quality" and the baseline are the *same* benchmark-fitness proxy (one
   score on both sides of the ratio), so it means "on paper we rarely fall far below the
-  flagship," not "you get N% of real answer quality." Tier thresholds are derived from the
-  catalog's own fitness distribution, so every tier is reachable rather than a hand-set bar.
+  flagship," not "you get 90% of real answer quality." Cost is higher than a cheapest
+  always router on purpose: premium and ultra requests now take the strongest model, so a
+  hard request pays for the model it needs. Tier thresholds are derived from the catalog's
+  own fitness distribution, so every tier is reachable rather than a hand-set bar.
 
-*The vector-router figures above are from an earlier eval run and are being refreshed
-against the latest routing changes (coverage-weighted fitness, the premium/ultra tier
-objective, and instruction-span capability detection).* Reproduce with
-`npm run eval:catalog` or `npm run eval:vector` using your own OpenAI-compatible key.
+Reproduce with `npm run eval:catalog` or `npm run eval:vector` using your own
+OpenAI-compatible key.
 
 ## Why orfora (vs LLM gateways)
 
