@@ -328,12 +328,11 @@ export function createVectorRouter<TOutput = unknown>(
         : (byId.get(fb) as ModelVector);
 
   if (handlers) {
-    for (const m of chatModels) {
-      if (!handlers[m.id]) {
-        throw new Error(
-          `orfora: config.handlers is missing a handler for "${m.id}".`,
-        );
-      }
+    const missing = chatModels.filter((m) => !handlers[m.id]).map((m) => m.id);
+    if (missing.length > 0) {
+      throw new Error(
+        `orfora: config.handlers is missing ${missing.length} handler(s): ${missing.join(", ")}. openrouterHandlers({ apiKey }) builds one per catalog model.`,
+      );
     }
   }
 

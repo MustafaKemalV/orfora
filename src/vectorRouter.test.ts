@@ -264,6 +264,18 @@ describe("createVectorRouter", () => {
     ).toThrow(/handler/);
   });
 
+  it("reports every missing handler at once, not one at a time", () => {
+    let message = "";
+    try {
+      makeRouter({ handlers: { "cheap-coder": async () => "x" } });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toMatch(/missing 4 handler/);
+    expect(message).toContain("strong-coder");
+    expect(message).toContain("generalist");
+  });
+
   it("works zero-config, routing over the built-in catalog", async () => {
     const d = await createVectorRouter({ embed: testEmbed }).route("hello");
     expect(defaultVectorCatalog.some((m) => m.id === d.model)).toBe(true);

@@ -180,12 +180,11 @@ export function createCatalogRouter<TOutput = unknown>(
   for (const model of Object.values(longContext)) reachable.add(model);
 
   if (handlers) {
-    for (const model of reachable) {
-      if (!handlers[model]) {
-        throw new Error(
-          `orfora: config.handlers is missing a handler for "${model}".`,
-        );
-      }
+    const missing = [...reachable].filter((model) => !handlers[model]);
+    if (missing.length > 0) {
+      throw new Error(
+        `orfora: config.handlers is missing ${missing.length} handler(s): ${missing.join(", ")}. openrouterHandlers({ apiKey }) builds one per catalog model.`,
+      );
     }
   }
 

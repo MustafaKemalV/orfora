@@ -47,12 +47,13 @@ export function createRouter<TOutput = unknown>(config: RouterConfig<TOutput>) {
   }
 
   if (handlers) {
-    for (const [name, r] of routeEntries) {
-      if (!handlers[r.model]) {
-        throw new Error(
-          `orfora: config.handlers is missing a handler for route "${name}" (model "${r.model}").`,
-        );
-      }
+    const missing = routeEntries
+      .filter(([, r]) => !handlers[r.model])
+      .map(([name, r]) => `${name} -> "${r.model}"`);
+    if (missing.length > 0) {
+      throw new Error(
+        `orfora: config.handlers is missing ${missing.length} handler(s): ${missing.join(", ")}.`,
+      );
     }
   }
 

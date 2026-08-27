@@ -216,8 +216,10 @@ const decision = await router.route({ prompt: "what's in this photo?", attachmen
 ## Let orfora call the model (optional)
 
 By default orfora returns a decision and you make the call. If you would rather it
-call the model for you, give it a handler per model and use `run()`. orfora still
-never imports a provider SDK, it only calls the function you supply:
+call the model for you, give it a handler per model and use the router's `.run()`
+method (every router exposes it). orfora still never imports a provider SDK, it only
+calls the function you supply; if any reachable model has no handler, creation throws
+once, listing all of them.
 
 ```ts
 const router = createRouter({
