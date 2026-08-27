@@ -1,6 +1,6 @@
 {
   "name": "orfora",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Optimal Routes For All: a semantic router for LLM apps. Route each request to the right-sized model. Cut cost, keep quality.",
   "type": "module",
   "license": "MIT",
@@ -50,10 +50,12 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
+    "prepublishOnly": "npm run build && npm run typecheck && npm test",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
