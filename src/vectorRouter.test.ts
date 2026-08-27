@@ -200,6 +200,19 @@ describe("createVectorRouter", () => {
     expect(d.model).toBe("strong-coder"); // priciest chat model
   });
 
+  it("fails open to the cheapest chat model when configured for cost", async () => {
+    const boom: EmbeddingProvider = {
+      embed: async () => {
+        throw new Error("embed failed");
+      },
+    };
+    const d = await makeRouter({ embed: boom, fallback: "cheapest" }).route(
+      "CODE_EASY",
+    );
+    expect(d.fallback).toBe(true);
+    expect(d.model).toBe("cheap-coder"); // cheapest chat model ($0.5)
+  });
+
   it("run() decides then calls the chosen model's handler", async () => {
     const handlers = Object.fromEntries(
       catalog.map((m) => [

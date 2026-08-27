@@ -67,7 +67,11 @@ export interface VectorRouterConfig<TOutput = unknown> {
   capabilitySeeds?: Record<Capability, string[]>;
   /** Override the tier seed sets (cheap / mid / premium). */
   tierSeeds?: { cheap: string[]; mid: string[]; premium: string[] };
-  /** Model id to fall open to. Defaults to the priciest chat model (strongest). */
+  /**
+   * Where to fail open when routing cannot decide (empty/failed embedding, an error).
+   * A model id, or "strongest" (default) / "cheapest". The default never trades quality
+   * on a bad guess; set "cheapest" (or a cheap id) for a cost-safe fail-open instead.
+   */
   fallback?: string;
   /** Minimum fitness to accept per tier. */
   thresholds?: Partial<Record<Tier, number>>;
@@ -279,16 +283,24 @@ export function createVectorRouter<TOutput = unknown>(
   if (chatModels.length === 0) {
     throw new Error("orfora: config.catalog has no chat model to route to.");
   }
-  if (config.fallback && !byId.has(config.fallback)) {
-    throw new Error(
-      `orfora: config.fallback "${config.fallback}" is not in the catalog.`,
+  const strongest = () =>
+    chatModels.reduce((a, b) =>
+      b.pricePerMTokens > a.pricePerMTokens ? b : a,
     );
+  const cheapest = () =>
+    chatModels.reduce((a, b) =>
+      b.pricePerMTokens < a.pricePerMTokens ? b : a,
+    );
+  const fb = config.fallback;
+  if (fb && fb !== "strongest" && fb !== "cheapest" && !byId.has(fb)) {
+    throw new Error(`orfora: config.fallback "${fb}" is not in the catalog.`);
   }
-  const fallbackModel = config.fallback
-    ? (byId.get(config.fallback) as ModelVector)
-    : chatModels.reduce((a, b) =>
-        b.pricePerMTokens > a.pricePerMTokens ? b : a,
-      );
+  const fallbackModel =
+    !fb || fb === "strongest"
+      ? strongest()
+      : fb === "cheapest"
+        ? cheapest()
+        : (byId.get(fb) as ModelVector);
 
   if (handlers) {
     for (const m of chatModels) {

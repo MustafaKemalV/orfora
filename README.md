@@ -305,6 +305,9 @@ routing decision rides along in `x-orfora-*` response headers.
   take the nearest route, or raise it to fall back to the strong model when unsure.
 - **signals.** Deterministic guards that run before the embedding: escalate very
   long or multi-intent prompts, and send attachments to a model that can handle them.
+- **fallback.** Where routing fails open when it cannot decide. Defaults to
+  `"strongest"` so a bad guess never trades quality; set `"cheapest"` (or a specific
+  model id) for a cost-safe fail-open instead.
 
 ## How it works
 
