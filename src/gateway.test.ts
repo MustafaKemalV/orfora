@@ -111,6 +111,17 @@ describe("createForwarder", () => {
     });
     await expect(fwd("xai/grok-4.6", {})).rejects.toThrow(/provider/);
   });
+
+  it("providers: throws on a model id without a provider prefix", async () => {
+    const fwd = createForwarder({
+      mode: "providers",
+      providers: {
+        anthropic: { baseURL: "https://api.anthropic.com/v1", apiKey: "sk-a" },
+      },
+      fetch: mockFetch({}),
+    });
+    await expect(fwd("just-a-model", {})).rejects.toThrow(/provider\/model/);
+  });
 });
 
 describe("createGateway", () => {
@@ -281,6 +292,26 @@ describe("orforaHandler", () => {
     expect(res.status).toBe(502);
     expect(await res.text()).not.toContain("SECRET_UPSTREAM_DETAIL");
     warn.mockRestore();
+  });
+
+  it("rejects a pinned model outside allowedModels with 400", async () => {
+    const f = mockFetch({ id: "c", choices: [] });
+    const handler = orforaHandler({
+      embed: fakeEmbed,
+      forward: { ...forward, fetch: f },
+      allowedModels: ["anthropic/claude-opus-5"],
+    });
+    const res = await handler(
+      new Request("http://x", {
+        method: "POST",
+        body: JSON.stringify({
+          model: "openai/gpt-5.6-sol",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(f).not.toHaveBeenCalled();
   });
 });
 

@@ -48,7 +48,11 @@ export type ForwardConfig =
       mode: "providers";
       /** Keyed by the model id's provider prefix, e.g. "anthropic", "openai". */
       providers: Record<string, { baseURL: string; apiKey: string }>;
-      /** Provider prefix to use when a model's own provider is not configured. */
+      /**
+       * Provider prefix to fall back to when a model's own provider is not configured.
+       * Caution: this sends unknown-prefixed models (including anything a caller pins)
+       * to that provider's key. Leave unset to reject unknown prefixes instead.
+       */
       fallback?: string;
       fetch?: typeof fetch;
     };
@@ -75,6 +79,23 @@ export interface GatewayConfig<TOutput = unknown> {
   router?: Omit<VectorRouterConfig<TOutput>, "embed">;
   /** Attach an `orfora` metadata field to the response body. Default true. */
   metadata?: boolean;
+  /**
+   * If set, callers may only pin a model in this list ("auto" always routes). A pinned
+   * model outside the list is rejected with 400 — defense against a caller steering
+   * requests (and your key) to an arbitrary or costly model.
+   */
+  allowedModels?: string[];
+}
+
+/** A client-caused error (bad or forbidden request) that maps to a 4xx, not a 500. */
+export class GatewayRequestError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "GatewayRequestError";
+  }
 }
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -127,7 +148,13 @@ export function createForwarder(
       if (config.referer) headers["http-referer"] = config.referer;
       if (config.title) headers["x-title"] = config.title;
     } else {
-      const prefix = model.split("/")[0] ?? "";
+      const slash = model.indexOf("/");
+      if (slash <= 0) {
+        throw new Error(
+          `orfora/gateway: providers mode needs a "provider/model" id, got "${model}".`,
+        );
+      }
+      const prefix = model.slice(0, slash);
       const provider =
         config.providers[prefix] ??
         (config.fallback ? config.providers[config.fallback] : undefined);
@@ -139,7 +166,7 @@ export function createForwarder(
       url = `${provider.baseURL.replace(/\/+$/, "")}/chat/completions`;
       headers.authorization = `Bearer ${provider.apiKey}`;
       // Direct provider endpoints expect the bare model name, not the prefixed id.
-      sendModel = model.slice(prefix.length + 1) || model;
+      sendModel = model.slice(slash + 1);
     }
 
     const payload = body && typeof body === "object" ? { ...body } : {};
@@ -176,6 +203,15 @@ export function createGateway<TOutput = unknown>(
     request: ChatCompletionRequest,
   ): Promise<{ model: string; meta: OrforaMeta }> {
     if (request.model && request.model !== "auto") {
+      if (
+        config.allowedModels &&
+        !config.allowedModels.includes(request.model)
+      ) {
+        throw new GatewayRequestError(
+          400,
+          `model "${request.model}" is not in allowedModels`,
+        );
+      }
       return {
         model: request.model,
         meta: { routed: false, model: request.model },
@@ -371,6 +407,9 @@ export function orforaHandler<TOutput = unknown>(
         headers: { "content-type": "application/json", ...headers },
       });
     } catch (e) {
+      if (e instanceof GatewayRequestError) {
+        return errorResponse(e.status, e.message);
+      }
       // Keep internal error detail out of the client response; log it instead.
       console.warn(`orfora/gateway: ${(e as Error).message}`);
       return errorResponse(500, "internal gateway error");
