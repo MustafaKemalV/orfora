@@ -18,8 +18,9 @@ The guiding principle: route to the **most appropriate** model, not the cheapest
 and not always the biggest. A trivial request goes to a small model, a genuinely
 hard one goes to a strong model. Low cost is a consequence of good fit, not the goal.
 
-orfora returns a *decision*, it does not sit in front of your model calls. There is
-no proxy hop, no extra service to run, and no single point of failure.
+By default orfora returns a *decision* and does not sit in front of your model calls:
+no proxy hop, no extra service, no single point of failure. When you want a drop-in
+instead, an optional gateway wraps that same decision as an OpenAI-compatible proxy.
 
 > **Status: early development (0.1.0).** The core works, is covered by tests, and is on
 > npm. The API may still change before 1.0.
@@ -126,9 +127,9 @@ The catalog, the grid, and every seed set are just defaults. Pass your own `grid
 `createVectorRouter` goes one step further: instead of a hand-mapped grid, each model
 carries a capability VECTOR scored from real published benchmarks (SWE-bench, GPQA,
 IFEval, BFCL, LMArena Elo, and more). A request picks its capability by meaning, and
-the router returns the CHEAPEST model whose relevance-weighted fitness for that
-capability clears the bar, subject to hard gates (an image needs a vision-capable
-model, live search needs a web-search model).
+the router picks within the tier by fitness: the cheapest model that clears the bar at
+lower tiers, or the strongest at premium and ultra, subject to hard gates (an image
+needs a vision-capable model, live search needs a web-search model).
 
 ```ts
 import { createVectorRouter } from "orfora";
@@ -139,8 +140,8 @@ const router = createVectorRouter({
 });
 
 const decision = await router.route("Fix the failing test in this module.");
-// decision.capability === "code", decision.model = the cheapest model strong
-// enough at coding, decision.fitness = its score for the request
+// decision.capability === "code", decision.model = the best-fit coding model for
+// the request's tier, decision.fitness = its score for the request
 ```
 
 It ships with a catalog of ~40 current (August 2026) models scored from LIVE, cited
@@ -428,22 +429,24 @@ OpenAI-compatible key.
 
 ## Why orfora (vs LLM gateways)
 
-orfora is not a gateway or proxy like LiteLLM or OpenRouter. It is a small decision
-library, and that is the point:
+At its core orfora is a small decision library, not a gateway like LiteLLM or
+OpenRouter, and by default that is the point:
 
-- **No proxy in your request path.** No added latency on completions, and no single
-  point of failure. orfora returns a decision, and your app calls the model.
+- **No proxy in your request path.** In decision mode orfora returns a model id and
+  your app calls the model: no added latency on completions, no single point of failure.
 - **No infrastructure.** `npm install`, runs in your process. No proxy, no Postgres,
   no Redis to operate.
-- **No markup, your own keys.** orfora takes no cut and holds no credentials, so
-  there is no central store of secrets to compromise.
+- **Your own keys.** The decision library takes no cut and holds no credentials.
 - **Provider-agnostic and composable.** It returns a model id, so you can use it
   standalone or feed that decision into a gateway you already run.
 
-It does one thing, pick the model. It is not a feature-for-feature gateway
-replacement (no unified multi-provider API, no load balancing, no spend dashboards),
-and it happily complements one. Its decision still costs one embedding call, so use
-a local embedder if you want zero network.
+The optional `orfora/gateway` trades some of this for convenience: it IS an
+OpenAI-compatible proxy, so it does sit in your path and forwards with your provider
+key (gate it with `authorize`). Reach for the decision library when you want zero added
+surface, the gateway when you want a drop-in. Either way orfora does one thing, pick the
+model: it is not a feature-for-feature gateway replacement (no unified multi-provider
+API, no load balancing, no spend dashboards). Its decision still costs one embedding
+call, so use a local embedder if you want zero network.
 
 ## Playground
 
