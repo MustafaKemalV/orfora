@@ -9,8 +9,8 @@ import type { CapabilityScore, ModelClass, ModelVector } from "./modelVector";
  * Mapping (canonical benchmark -> axis, primary -> fallback), normalised:
  *   code_agentic          Terminal-Bench 2.1 -> SWE-bench Pro      (percent / 100)
  *   code_snippet          LiveCodeBench      -> SWE-bench Verified (percent / 100)
- *   math_reasoning        GPQA Diamond       -> AIME               (percent / 100)
- *   general_knowledge     AA Intelligence Idx -> HLE               (index: min-max; HLE: /100)
+ *   math_reasoning        AIME               -> GPQA Diamond       (percent / 100; GPQA a STEM proxy)
+ *   general_knowledge     AA Intelligence Idx -> HLE               (both min-max across the catalog)
  *   tool_use              OSWorld-Verified   -> tau-bench / BFCL    (percent / 100)
  *   instruction_following IFBench                                  (percent / 100)
  *   human_preference_elo  LMArena text Elo                         (Elo: min-max)
@@ -768,12 +768,15 @@ const present = (pick: (r: Raw) => number | undefined): number[] =>
 const idxVals = present((r) => r.aaIndex);
 const eloVals = present((r) => r.elo);
 const ceVals = present((r) => r.creativeElo);
+const hleVals = present((r) => r.hle);
 const idxMin = Math.min(...idxVals);
 const idxMax = Math.max(...idxVals);
 const eloMin = Math.min(...eloVals);
 const eloMax = Math.max(...eloVals);
 const ceMin = Math.min(...ceVals);
 const ceMax = Math.max(...ceVals);
+const hleMin = Math.min(...hleVals);
+const hleMax = Math.max(...hleVals);
 const norm = (
   v: number | undefined,
   lo: number,
@@ -788,8 +791,16 @@ function scoresOf(r: Raw): Partial<Record<CapabilityScore, number>> {
   };
   set("code_agentic", pct(r.termbench) ?? pct(r.swePro));
   set("code_snippet", pct(r.livecode) ?? pct(r.sweVerified));
-  set("math_reasoning", pct(r.gpqa) ?? pct(r.aime));
-  set("general_knowledge", norm(r.aaIndex, idxMin, idxMax) ?? pct(r.hle));
+  // Real competition math (AIME) where available; GPQA Diamond is an advanced-STEM
+  // proxy for the rest, correlated with but not the same as math ability.
+  set("math_reasoning", pct(r.aime) ?? pct(r.gpqa));
+  // One consistent scale: the AA Intelligence Index and HLE are BOTH min-max normalised
+  // across the catalog, so a model scored by either is a relative [0,1], never a
+  // catalog-relative rank mixed with an absolute fraction.
+  set(
+    "general_knowledge",
+    norm(r.aaIndex, idxMin, idxMax) ?? norm(r.hle, hleMin, hleMax),
+  );
   set("tool_use", pct(r.osworld) ?? pct(r.tau));
   set("instruction_following", pct(r.ifbench));
   set("human_preference_elo", norm(r.elo, eloMin, eloMax));
