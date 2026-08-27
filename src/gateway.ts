@@ -344,10 +344,17 @@ export function orforaHandler<TOutput = unknown>(
       const { meta, response } = await gw.handle(body);
       const headers = metaHeaders(meta);
       if (!response.ok) {
+        // Do not reflect the upstream body to the caller: it can leak provider-side
+        // detail and aids recon. Log it server-side, return a generic error + status.
         const detail = await response.text().catch(() => "");
+        if (detail) {
+          console.warn(
+            `orfora/gateway: upstream ${response.status} for "${meta.model}": ${detail}`,
+          );
+        }
         return errorResponse(
           response.status,
-          `upstream error for "${meta.model}": ${detail}`.trim(),
+          `upstream error for "${meta.model}"`,
           headers,
         );
       }
@@ -364,7 +371,9 @@ export function orforaHandler<TOutput = unknown>(
         headers: { "content-type": "application/json", ...headers },
       });
     } catch (e) {
-      return errorResponse(500, (e as Error).message);
+      // Keep internal error detail out of the client response; log it instead.
+      console.warn(`orfora/gateway: ${(e as Error).message}`);
+      return errorResponse(500, "internal gateway error");
     }
   };
 }

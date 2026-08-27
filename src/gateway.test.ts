@@ -261,6 +261,27 @@ describe("orforaHandler", () => {
     expect(res.status).toBe(413);
     expect(f).not.toHaveBeenCalled();
   });
+
+  it("does not reflect the upstream error body to the caller", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const f = mockFetch({ error: "SECRET_UPSTREAM_DETAIL" }, false, 502);
+    const handler = orforaHandler({
+      embed: fakeEmbed,
+      forward: { ...forward, fetch: f },
+    });
+    const res = await handler(
+      new Request("http://x", {
+        method: "POST",
+        body: JSON.stringify({
+          model: "auto",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    );
+    expect(res.status).toBe(502);
+    expect(await res.text()).not.toContain("SECRET_UPSTREAM_DETAIL");
+    warn.mockRestore();
+  });
 });
 
 describe("createOrforaClient", () => {
