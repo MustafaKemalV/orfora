@@ -1,8 +1,15 @@
 # Changelog
 
 All notable changes to orfora are recorded here. The format follows
-[Keep a Changelog](https://keepachangelog.com/). The project is pre-release (`0.0.0`),
-so the API may still change and there is no npm release yet.
+[Keep a Changelog](https://keepachangelog.com/). The project is pre-1.0, so the API may
+still change.
+
+## [0.1.1] - 2026-08-27
+
+### Fixed
+- The README shown on npm now reflects the published status (`npm install orfora`) and
+  reconciles the "no proxy / holds no credentials" framing with the opt-in gateway.
+  0.1.0's tarball had frozen the pre-publish README.
 
 ## [0.1.0] - 2026-08-27
 

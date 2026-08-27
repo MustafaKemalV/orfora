@@ -6,7 +6,7 @@
  * need reasoning, decided by meaning (embeddings + math), not by message length.
  */
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 
 export type { CascadePlan, CascadeResult, CascadeStep } from "./cascade";
 export { buildCascade, heuristicVerify, runCascade } from "./cascade";

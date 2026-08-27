@@ -1,6 +1,6 @@
 {
   "name": "orfora",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Optimal Routes For All: a semantic router for LLM apps. Route each request to the right-sized model. Cut cost, keep quality.",
   "type": "module",
   "license": "MIT",
