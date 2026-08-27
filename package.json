@@ -42,6 +42,11 @@
       "types": "./dist/gateway.d.ts",
       "import": "./dist/gateway.js",
       "require": "./dist/gateway.cjs"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "require": "./dist/node.cjs"
     }
   },
   "files": [

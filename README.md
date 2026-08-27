@@ -269,8 +269,9 @@ const res = await client.chat.completions.create({
 ```
 
 **As a proxy (any language, any stack).** `orforaHandler` is a fetch-style
-`(Request) => Response`, so it drops onto Vercel edge, Bun, Deno, or Node. Point your
-OpenAI base URL at it and set `model: "auto"`:
+`(Request) => Response`, so it drops onto Web-standard runtimes (Vercel edge, Bun, Deno)
+as-is. On Node (`http.createServer`, Express, Fastify) wrap it with `toNodeHandler` from
+`orfora/node`. Point your OpenAI base URL at it and set `model: "auto"`:
 
 ```ts
 // api/chat.ts (Vercel edge)
@@ -284,6 +285,16 @@ export default orforaHandler({
   // The handler forwards with YOUR provider key, so gate who may call it.
   authorize: (req) => req.headers.get("authorization") === `Bearer ${process.env.PROXY_KEY}`,
 });
+```
+
+On Node, wrap the same handler with `toNodeHandler`:
+
+```ts
+import { createServer } from "node:http";
+import { orforaHandler } from "orfora/gateway";
+import { toNodeHandler } from "orfora/node";
+
+createServer(toNodeHandler(orforaHandler({ embed, forward }))).listen(3000);
 ```
 
 The handler is a keyed proxy, so it is **unauthenticated unless you pass `authorize`**

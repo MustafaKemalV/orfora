@@ -7,6 +7,7 @@ export default defineConfig({
     "src/local.ts",
     "src/openrouter.ts",
     "src/gateway.ts",
+    "src/node.ts",
   ],
   format: ["esm", "cjs"],
   dts: true,
