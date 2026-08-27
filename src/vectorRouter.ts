@@ -263,11 +263,17 @@ function nearestCapability(
   return { capability, seedDistance, abstainReason };
 }
 
+/** A rough context requirement in tokens for the gate: ~4 chars per token, plus headroom
+ * for the model's own response, so the window must fit input AND output. */
+function estimateContextNeed(text: string): number {
+  return Math.ceil(text.length / 4) + 2000;
+}
+
 function buildGates(request: RouteInput, capability: Capability): Gates {
   return {
     needsImage: (request.attachments?.length ?? 0) > 0,
     needsWebSearch: capability === "live_web_search",
-    minContext: Math.ceil(request.prompt.length / 3),
+    minContext: estimateContextNeed(request.prompt),
   };
 }
 

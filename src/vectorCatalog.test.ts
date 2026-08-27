@@ -20,12 +20,6 @@ describe("defaultVectorCatalog", () => {
     }
   });
 
-  it("only gives a vision score to image-capable models", () => {
-    for (const m of defaultVectorCatalog) {
-      if (m.scores.vision_score !== undefined) expect(m.imageIn).toBe(true);
-    }
-  });
-
   it("flags the Sonar live-search specialists as web-capable", () => {
     // Many current models now have native web search, so it is no longer a Sonar
     // exclusive; but every Sonar model must be web-capable, and the gate is boolean.

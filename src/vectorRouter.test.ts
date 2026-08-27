@@ -128,6 +128,27 @@ describe("matchModel", () => {
     expect(r.model?.id).toBe("search");
   });
 
+  it("respects the context gate", () => {
+    const small = chat({
+      id: "small-ctx",
+      context: 8000,
+      scores: { general_knowledge: 0.8, human_preference_elo: 0.8 },
+    });
+    const big = chat({
+      id: "big-ctx",
+      context: 1_000_000,
+      scores: { general_knowledge: 0.7, human_preference_elo: 0.7 },
+    });
+    const r = matchModel(
+      [small, big],
+      "general_qa",
+      "cheap",
+      { minContext: 100_000 },
+      FIXED_THRESHOLDS,
+    );
+    expect(r.model?.id).toBe("big-ctx");
+  });
+
   it("returns null when no model passes the gates", () => {
     const r = matchModel(catalog, "general_qa", "cheap", { needsAudio: true });
     expect(r.model).toBeNull();

@@ -29,11 +29,7 @@ export type CapabilityScore =
   | "general_knowledge"
   | "instruction_following"
   | "tool_use"
-  | "multilingual"
   | "creative_writing"
-  | "vision_score"
-  | "effective_context"
-  | "latency"
   | "human_preference_elo";
 
 /** A model's full capability profile: gates, cost, and soft scores. */
