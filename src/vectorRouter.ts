@@ -149,6 +149,18 @@ function centroid(vectors: number[][]): number[] | null {
   return sum.map((x) => x / vectors.length);
 }
 
+/**
+ * The text a routing decision is embedded on. For a long prompt the capability is the
+ * INSTRUCTION, not the pasted body, so keep the leading and trailing text (where the ask
+ * usually sits) and drop the middle, whose content would otherwise dominate the vector.
+ */
+export function instructionSpan(text: string, maxChars = 600): string {
+  if (text.length <= maxChars) return text;
+  const head = Math.ceil(maxChars * 0.6);
+  const tail = maxChars - head;
+  return `${text.slice(0, head)}\n…\n${text.slice(text.length - tail)}`;
+}
+
 function passesGates(m: ModelVector, gates: Gates): boolean {
   return (
     m.modelClass === "chat" &&
@@ -387,7 +399,7 @@ export function createVectorRouter<TOutput = unknown>(
       const { capability: capBank, tier: tierBank } = await loadBank();
       if (capBank.length === 0) return failOpen("no-seeds");
 
-      const embedded = await embed.embed([request.prompt]);
+      const embedded = await embed.embed([instructionSpan(request.prompt)]);
       const query = embedded[0];
       if (!query) return failOpen("no-embedding");
 
@@ -475,7 +487,7 @@ export function createVectorRouter<TOutput = unknown>(
     const { capability: capBank } = await loadBank();
     let capability: Capability = "general_qa";
     if (capBank.length > 0) {
-      const embedded = await embed.embed([request.prompt]);
+      const embedded = await embed.embed([instructionSpan(request.prompt)]);
       const query = embedded[0];
       if (query) {
         capability = nearestCapability(query, capBank, abstain).capability;

@@ -5,6 +5,7 @@ import type { EmbeddingProvider } from "./types";
 import { defaultVectorCatalog } from "./vectorCatalog";
 import {
   createVectorRouter,
+  instructionSpan,
   matchModel,
   type VectorRouterConfig,
 } from "./vectorRouter";
@@ -258,5 +259,23 @@ describe("createVectorRouter", () => {
   it("does not abstain when abstain is disabled", async () => {
     const d = await makeRouter({ abstain: false }).route("OOD_UNKNOWN_INPUT");
     expect(d.reason).not.toContain("abstain");
+  });
+});
+
+describe("instructionSpan", () => {
+  it("keeps a short prompt whole", () => {
+    expect(instructionSpan("summarize this", 600)).toBe("summarize this");
+  });
+
+  it("keeps the leading and trailing instruction, drops the pasted body", () => {
+    const body = "x".repeat(5000);
+    const span = instructionSpan(
+      `Translate to French:\n${body}\nKeep it formal.`,
+      600,
+    );
+    expect(span.length).toBeLessThan(700);
+    expect(span).toContain("Translate to French");
+    expect(span).toContain("Keep it formal");
+    expect(span).not.toContain(body);
   });
 });
