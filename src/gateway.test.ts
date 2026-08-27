@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  type ChatCompletionChunk,
   createForwarder,
   createGateway,
   createOrforaClient,
@@ -325,11 +326,11 @@ describe("createOrforaClient", () => {
       embed: fakeEmbed,
       forward: { ...forward, fetch: f },
     });
-    const out = (await client.chat.completions.create({
+    const out = await client.chat.completions.create({
       model: "auto",
       messages: [{ role: "user", content: "hi" }],
-    })) as Record<string, unknown>;
-    expect((out.orfora as { routed: boolean }).routed).toBe(true);
+    });
+    expect(out.orfora?.routed).toBe(true);
   });
 
   it("stream create yields chunks, the first tagged with metadata", async () => {
@@ -341,12 +342,12 @@ describe("createOrforaClient", () => {
       embed: fakeEmbed,
       forward: { ...forward, fetch: f },
     });
-    const stream = (await client.chat.completions.create({
+    const stream = await client.chat.completions.create({
       model: "auto",
       stream: true,
       messages: [{ role: "user", content: "hi" }],
-    })) as AsyncGenerator<Record<string, unknown>>;
-    const chunks: Record<string, unknown>[] = [];
+    });
+    const chunks: ChatCompletionChunk[] = [];
     for await (const c of stream) chunks.push(c);
     expect(chunks.length).toBe(2);
     expect(chunks[0]?.orfora).toBeTruthy();
@@ -374,14 +375,14 @@ describe("createOrforaClient", () => {
       embed: fakeEmbed,
       forward: { ...forward, fetch: f },
     });
-    const stream = (await client.chat.completions.create({
+    const stream = await client.chat.completions.create({
       model: "auto",
       stream: true,
       messages: [{ role: "user", content: "hi" }],
-    })) as AsyncGenerator<Record<string, unknown>>;
+    });
     await expect(
       (async () => {
-        const out: Record<string, unknown>[] = [];
+        const out: ChatCompletionChunk[] = [];
         for await (const c of stream) out.push(c);
       })(),
     ).rejects.toThrow(/buffer/);

@@ -70,6 +70,47 @@ export interface OrforaMeta {
   estCostPerMTokens?: number;
 }
 
+/** A minimal OpenAI chat completion shape; unknown upstream fields pass through. */
+export interface ChatCompletion {
+  id?: string;
+  model?: string;
+  choices?: Array<{
+    index?: number;
+    message?: { role?: string; content?: string | null };
+    finish_reason?: string | null;
+  }>;
+  /** orfora's routing metadata, present unless metadata is disabled. */
+  orfora?: OrforaMeta;
+  [k: string]: unknown;
+}
+
+/** A minimal OpenAI streaming chunk; the first chunk of a stream carries `orfora`. */
+export interface ChatCompletionChunk {
+  id?: string;
+  model?: string;
+  choices?: Array<{
+    index?: number;
+    delta?: { role?: string; content?: string };
+    finish_reason?: string | null;
+  }>;
+  orfora?: OrforaMeta;
+  [k: string]: unknown;
+}
+
+/** The OpenAI-SDK-shaped client returned by {@link createOrforaClient}. */
+export interface OrforaClient {
+  chat: {
+    completions: {
+      create(
+        request: ChatCompletionRequest & { stream?: false },
+      ): Promise<ChatCompletion>;
+      create(
+        request: ChatCompletionRequest & { stream: true },
+      ): Promise<AsyncGenerator<ChatCompletionChunk>>;
+    };
+  };
+}
+
 export interface GatewayConfig<TOutput = unknown> {
   /** Backend that turns the routing text into a vector. */
   embed: EmbeddingProvider;
@@ -425,7 +466,7 @@ async function* streamChunks(
   response: Response,
   meta: OrforaMeta,
   withMeta: boolean,
-): AsyncGenerator<Record<string, unknown>> {
+): AsyncGenerator<ChatCompletionChunk> {
   const body = response.body;
   if (!body) return;
   const reader = body.getReader();
@@ -475,26 +516,25 @@ async function* streamChunks(
  */
 export function createOrforaClient<TOutput = unknown>(
   config: GatewayConfig<TOutput>,
-) {
+): OrforaClient {
   const gw = createGateway(config);
-  return {
-    chat: {
-      completions: {
-        create: async (request: ChatCompletionRequest) => {
-          if (!request.stream) {
-            const { data } = await gw.chatCompletion(request);
-            return data;
-          }
-          const { meta, response } = await gw.handle(request);
-          if (!response.ok) {
-            const detail = await response.text().catch(() => "");
-            throw new Error(
-              `orfora/gateway: upstream ${response.status} for "${meta.model}". ${detail}`.trim(),
-            );
-          }
-          return streamChunks(response, meta, gw.withMeta);
-        },
-      },
-    },
-  };
+  async function create(
+    request: ChatCompletionRequest,
+  ): Promise<ChatCompletion | AsyncGenerator<ChatCompletionChunk>> {
+    if (!request.stream) {
+      const { data } = await gw.chatCompletion(request);
+      return data as ChatCompletion;
+    }
+    const { meta, response } = await gw.handle(request);
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(
+        `orfora/gateway: upstream ${response.status} for "${meta.model}". ${detail}`.trim(),
+      );
+    }
+    return streamChunks(response, meta, gw.withMeta);
+  }
+  // The impl handles both modes; the overloads on OrforaClient give callers the precise
+  // return type from the `stream` flag, so res.choices / res.orfora type without a cast.
+  return { chat: { completions: { create } } } as OrforaClient;
 }
