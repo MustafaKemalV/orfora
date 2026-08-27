@@ -414,15 +414,19 @@ matching and out-of-distribution abstention:
   cheapest tier that actually solved it), reaches **56% under 5-fold cross-validation** vs
   35% for the seeds and 33% majority. It is embedding-space specific, so it ships off by
   default and is enabled where the embedder matches (as in the playground).
-- **Cost and quality, the right-fit lens** (not a cheap-ratio): routing each request to
-  its best-fit model keeps about **91% of the quality of always using the top flagship at
-  roughly 4% of its cost** on the main set (89% quality at 6% cost on the adversarial
-  set), because a task-tuned model often matches a pricey generalist on its own task
-  while costing far less. Quality here is a benchmark-fitness proxy, not measured answer
-  quality. Tier thresholds are derived from the catalog's own fitness distribution, so
-  every tier is reachable rather than an unreachable hand-set bar.
+- **Cost, with an honest caveat** (not a quality guarantee): routing each request to its
+  best-fit model keeps the chosen models close to the top flagship's *benchmark fitness*
+  while paying a small fraction of its price, because a task-tuned model often matches a
+  pricey generalist on its own task. Read this as a **cost signal, not a measured-quality
+  claim**: the "quality" and the baseline are the *same* benchmark-fitness proxy (one
+  score on both sides of the ratio), so it means "on paper we rarely fall far below the
+  flagship," not "you get N% of real answer quality." Tier thresholds are derived from the
+  catalog's own fitness distribution, so every tier is reachable rather than a hand-set bar.
 
-Reproduce with `npm run eval:catalog` or `npm run eval:vector`.
+*The vector-router figures above are from an earlier eval run and are being refreshed
+against the latest routing changes (coverage-weighted fitness, the premium/ultra tier
+objective, and instruction-span capability detection).* Reproduce with
+`npm run eval:catalog` or `npm run eval:vector` using your own OpenAI-compatible key.
 
 ## Why orfora (vs LLM gateways)
 
