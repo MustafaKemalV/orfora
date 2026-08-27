@@ -281,8 +281,14 @@ export const config = { runtime: "edge" };
 export default orforaHandler({
   embed: openaiEmbedder({ apiKey: process.env.OPENAI_API_KEY }),
   forward: { mode: "openrouter", apiKey: process.env.OPENROUTER_API_KEY },
+  // The handler forwards with YOUR provider key, so gate who may call it.
+  authorize: (req) => req.headers.get("authorization") === `Bearer ${process.env.PROXY_KEY}`,
 });
 ```
+
+The handler is a keyed proxy, so it is **unauthenticated unless you pass `authorize`**
+(return false to reject with 401); a body-size cap (`maxBodyBytes`, default 1MB) guards
+oversized requests, and you should rate-limit at the edge on a public deployment.
 
 Forwarding is flexible: `{ mode: "openrouter", apiKey }` reaches every model with one
 key, or `{ mode: "providers", providers: { anthropic: { baseURL, apiKey }, ... } }`

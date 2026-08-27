@@ -221,6 +221,46 @@ describe("orforaHandler", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("rejects an unauthorized caller with 401 and never forwards", async () => {
+    const f = mockFetch({ id: "c", choices: [] });
+    const handler = orforaHandler({
+      embed: fakeEmbed,
+      forward: { ...forward, fetch: f },
+      authorize: () => false,
+    });
+    const res = await handler(
+      new Request("http://x", {
+        method: "POST",
+        body: JSON.stringify({
+          model: "auto",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    );
+    expect(res.status).toBe(401);
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized body with 413 and never forwards", async () => {
+    const f = mockFetch({ id: "c", choices: [] });
+    const handler = orforaHandler({
+      embed: fakeEmbed,
+      forward: { ...forward, fetch: f },
+      maxBodyBytes: 32,
+    });
+    const res = await handler(
+      new Request("http://x", {
+        method: "POST",
+        body: JSON.stringify({
+          model: "auto",
+          messages: [{ role: "user", content: "x".repeat(1000) }],
+        }),
+      }),
+    );
+    expect(res.status).toBe(413);
+    expect(f).not.toHaveBeenCalled();
+  });
 });
 
 describe("createOrforaClient", () => {

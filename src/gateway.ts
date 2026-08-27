@@ -255,20 +255,85 @@ function errorResponse(
   );
 }
 
+/** Chat requests are tiny; this is a DoS guard, not a real limit. Infinity disables it. */
+const DEFAULT_MAX_BODY_BYTES = 1_000_000;
+
+/** The HTTP handler's config: the gateway plus HTTP-only policy (auth, body size). */
+export interface HttpHandlerConfig<TOutput = unknown>
+  extends GatewayConfig<TOutput> {
+  /**
+   * Gate inbound callers; return false (or throw) to reject with 401. The handler is a
+   * KEYED proxy: without this it is open to anyone who can reach it, and they can spend
+   * your provider key. Always set it on a public deployment.
+   */
+  authorize?: (request: Request) => boolean | Promise<boolean>;
+  /** Max request body size in bytes (default 1_000_000). Pass Infinity to disable. */
+  maxBodyBytes?: number;
+}
+
+/** Read a request body as text, returning null once it exceeds maxBytes. */
+async function readBodyCapped(
+  request: Request,
+  maxBytes: number,
+): Promise<string | null> {
+  if (!Number.isFinite(maxBytes)) return request.text();
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  const body = request.body;
+  if (!body) return request.text();
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
 /**
  * An OpenAI-compatible HTTP handler: `(Request) => Promise<Response>`, mountable at
  * `/v1/chat/completions` on any fetch-style runtime (Vercel edge, Bun, Deno, or Node
  * via an adapter). Point your OpenAI base URL at it and set `model: "auto"`; streaming
  * passes through untouched, and routing shows up in `x-orfora-*` headers.
+ *
+ * SECURITY: this forwards with your provider key. It is UNAUTHENTICATED unless you pass
+ * `authorize`; a body-size cap (`maxBodyBytes`, default 1MB) guards against oversized
+ * requests. On a public deployment, always set `authorize` and rate-limit at the edge.
  */
 export function orforaHandler<TOutput = unknown>(
-  config: GatewayConfig<TOutput>,
+  config: HttpHandlerConfig<TOutput>,
 ): (request: Request) => Promise<Response> {
   const gw = createGateway(config);
+  const maxBodyBytes = config.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   return async (request) => {
+    if (config.authorize) {
+      let allowed = false;
+      try {
+        allowed = await config.authorize(request);
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) return errorResponse(401, "unauthorized");
+    }
+    const raw = await readBodyCapped(request, maxBodyBytes);
+    if (raw === null) return errorResponse(413, "request body too large");
     let body: ChatCompletionRequest;
     try {
-      body = (await request.json()) as ChatCompletionRequest;
+      body = JSON.parse(raw) as ChatCompletionRequest;
     } catch {
       return errorResponse(400, "invalid JSON body");
     }
