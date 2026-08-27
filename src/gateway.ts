@@ -417,6 +417,9 @@ export function orforaHandler<TOutput = unknown>(
   };
 }
 
+/** A partial SSE event past this many bytes means a stuck or hostile upstream; abort. */
+const MAX_SSE_BUFFER = 1_000_000;
+
 /** Parse an upstream SSE stream into OpenAI chunk objects; tag the first with meta. */
 async function* streamChunks(
   response: Response,
@@ -454,6 +457,12 @@ async function* streamChunks(
           // Ignore keep-alive / non-JSON lines.
         }
       }
+    }
+    if (buffer.length > MAX_SSE_BUFFER) {
+      await reader.cancel().catch(() => {});
+      throw new Error(
+        "orfora/gateway: SSE stream exceeded the buffer limit without a complete event.",
+      );
     }
   }
 }

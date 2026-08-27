@@ -352,4 +352,38 @@ describe("createOrforaClient", () => {
     expect(chunks[0]?.orfora).toBeTruthy();
     expect(chunks[1]?.orfora).toBeUndefined();
   });
+
+  it("aborts a stream that never terminates an event", async () => {
+    const huge = "x".repeat(1_100_000);
+    const f = vi.fn(async () => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(huge));
+          controller.close();
+        },
+      });
+      return {
+        ok: true,
+        status: 200,
+        body,
+        json: async () => ({}),
+        text: async () => "",
+      } as unknown as Response;
+    });
+    const client = createOrforaClient({
+      embed: fakeEmbed,
+      forward: { ...forward, fetch: f },
+    });
+    const stream = (await client.chat.completions.create({
+      model: "auto",
+      stream: true,
+      messages: [{ role: "user", content: "hi" }],
+    })) as AsyncGenerator<Record<string, unknown>>;
+    await expect(
+      (async () => {
+        const out: Record<string, unknown>[] = [];
+        for await (const c of stream) out.push(c);
+      })(),
+    ).rejects.toThrow(/buffer/);
+  });
 });
