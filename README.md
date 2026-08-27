@@ -26,15 +26,40 @@ no proxy hop, no extra service to run, and no single point of failure.
 
 ## Install
 
+Not yet on npm. Until the first release, install from GitHub:
+
 ```sh
-npm install orfora
+npm install github:MustafaKemalV/orfora
 ```
 
-You also need an embedding backend. orfora ships three, or you can bring your own:
+orfora needs **two things**: an **embedder** (to turn a request into a vector and route
+it) and, if you want orfora to call the model too, a **way to reach models**. The
+embedder is required even for the gateway. Pick an embedder:
 
-- `orfora/openai`, any OpenAI-compatible API.
-- `orfora/local`, a small model on device via transformers.js, no API key.
+- `orfora/openai`, any OpenAI-compatible embeddings API (needs a key).
+- `orfora/local`, a small model on device via transformers.js, no key. Install the peer
+  once (`npm install @huggingface/transformers`); the model downloads on first use.
 - `orfora/openrouter`, one key that both embeds and reaches every model in the catalog.
+
+```ts
+// keyless, on-device embedding
+import { localEmbedder } from "orfora/local";
+const embed = localEmbedder(); // downloads all-MiniLM-L6-v2 on first call
+```
+
+## Which router do I use?
+
+| You want | Use |
+| --- | --- |
+| Cheapest split between a small and a strong model | `complexityRouter` |
+| Route across many models by real benchmark fitness | `createVectorRouter` |
+| Keep OpenAI-shaped code, auto-route with no logic change | the gateway (`createOrforaClient` / `orforaHandler`) |
+| Fully custom named routes with your own seeds | `createRouter` |
+| Route image / video / speech / music generation too | `createMultimodalRouter` |
+
+Start with `complexityRouter` or the gateway. `createVectorRouter` is the advanced
+engine (model-as-vector fitness); `createCatalogRouter` is its capability x tier grid
+predecessor.
 
 ## Quickstart: two-tier cost routing
 
@@ -265,9 +290,20 @@ const res = await client.chat.completions.create({
   messages: [{ role: "user", content: "Refactor this module and explain the change." }],
 });
 // res.orfora = { routed, model, capability, tier, fitness, estCostPerMTokens }
+// res.choices[0].message.content is the answer, typed (no cast needed).
+```
 
-// streaming works the same: for await (const chunk of await client.chat.completions
-//   .create({ model: "auto", stream: true, messages })) { ... }
+Streaming returns an async iterable of chunks; the first carries the `orfora` metadata:
+
+```ts
+const stream = await client.chat.completions.create({
+  model: "auto",
+  stream: true,
+  messages: [{ role: "user", content: "Write a haiku about routing." }],
+});
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices?.[0]?.delta?.content ?? "");
+}
 ```
 
 **As a proxy (any language, any stack).** `orforaHandler` is a fetch-style
@@ -307,7 +343,18 @@ Forwarding is flexible: `{ mode: "openrouter", apiKey }` reaches every model wit
 key, or `{ mode: "providers", providers: { anthropic: { baseURL, apiKey }, ... } }`
 sends each request to your own provider keys (the bare model name to each provider's
 OpenAI-compatible endpoint). Streaming passes through as `text/event-stream`, and the
-routing decision rides along in `x-orfora-*` response headers.
+routing decision rides along in response headers.
+
+The routing metadata, on the response body as `orfora` (in-process) and as headers (proxy):
+
+| `OrforaMeta` field | Header | Meaning |
+| --- | --- | --- |
+| `routed` | `x-orfora-routed` | true if orfora chose the model, false if you pinned it |
+| `model` | `x-orfora-model` | the model the request was sent to |
+| `capability` | `x-orfora-capability` | the detected capability (e.g. `code`, `general_qa`) |
+| `tier` | `x-orfora-tier` | the tier the request landed in |
+| `fitness` | `x-orfora-fitness` | the chosen model's fitness for the capability |
+| `estCostPerMTokens` | — | the model's output price per 1M tokens (its `pricePerMTokens`) |
 
 ## Tuning
 
